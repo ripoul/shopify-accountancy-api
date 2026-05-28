@@ -1,0 +1,21 @@
+name: Code Quality Assurance
+on:
+  push:
+
+jobs:
+  fmt:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
+      - name: Set up Python
+        run: uv python install
+      - name: Install the project
+        run: uv sync --locked --all-extras
+      - uses: astral-sh/ruff-action@v3
+        with:
+          src: "."
+      - name: run ty
+        run: uv run ty check
