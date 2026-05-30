@@ -47,6 +47,13 @@ class UserCreateTest(TestCase):
         response = self.client.post(self.url, self.valid_payload)
         self.assertNotEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
 
+    def test_create_user_without_optional_fields(self):
+        payload = {"email": "minimal@example.com", "password": "strongpassword"}
+        response = self.client.post(self.url, payload)
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(response.data["first_name"], "")
+        self.assertEqual(response.data["last_name"], "")
+
 
 class UserMeTest(TestCase):
     def setUp(self):
@@ -83,5 +90,14 @@ class UserMeTest(TestCase):
         response = self.client.patch(self.url, {"first_name": "Jean"})
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(response.data["first_name"], "Jean")
+        self.user.refresh_from_db()
+        self.assertEqual(self.user.first_name, "Jean")
+
+    def test_put_me(self):
+        self._authenticate()
+        response = self.client.put(self.url, {"email": "me@example.com", "first_name": "Jean", "last_name": "Dupont"})
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["first_name"], "Jean")
+        self.assertEqual(response.data["last_name"], "Dupont")
         self.user.refresh_from_db()
         self.assertEqual(self.user.first_name, "Jean")

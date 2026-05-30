@@ -114,3 +114,66 @@ class StoreListTest(TestCase):
         response = self.client.get(self.url)
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(len(response.data["results"]), 1)
+
+    def test_list_unauthenticated(self):
+        response = self.client.get(self.url)
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+
+
+SHOPIFY_INSTALL_PARAMS = {
+    "shop": "test-store.myshopify.com",
+    "hmac": "validhmac",
+    "host": "aGVsbG8=",
+    "timestamp": "1234567890",
+}
+
+
+class StoreInstallTest(TestCase):
+    def setUp(self):
+        self.client = APIClient()
+        self.user = User.objects.create_user(
+            username="owner@example.com",
+            email="owner@example.com",
+            password="strongpassword",
+        )
+        self.url = reverse("store-install")
+        self._authenticate()
+
+    def _authenticate(self):
+        token_response = self.client.post(
+            reverse("token_obtain_pair"),
+            {"username": "owner@example.com", "password": "strongpassword"},
+        )
+        self.client.credentials(HTTP_AUTHORIZATION=f"Bearer {token_response.data['access']}")
+
+    @patch(
+        "core.views.store.build_authorization_url",
+        return_value="https://test-store.myshopify.com/admin/oauth/authorize",
+    )
+    def test_install_returns_authorization_url(self, _mock):
+        response = self.client.get(self.url, SHOPIFY_INSTALL_PARAMS)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertIn("authorization_url", response.data)
+        self.assertEqual(
+            response.data["authorization_url"],
+            "https://test-store.myshopify.com/admin/oauth/authorize",
+        )
+
+    @patch(
+        "core.views.store.build_authorization_url",
+        side_effect=ValueError("HMAC invalide."),
+    )
+    def test_install_invalid_hmac_returns_400(self, _mock):
+        response = self.client.get(self.url, SHOPIFY_INSTALL_PARAMS)
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("HMAC invalide", response.data["detail"])
+
+    def test_install_missing_shop_returns_400(self):
+        params = {k: v for k, v in SHOPIFY_INSTALL_PARAMS.items() if k != "shop"}
+        response = self.client.get(self.url, params)
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_install_unauthenticated(self):
+        self.client.credentials()
+        response = self.client.get(self.url, SHOPIFY_INSTALL_PARAMS)
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)

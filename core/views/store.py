@@ -1,11 +1,12 @@
 from guardian.shortcuts import assign_perm, get_objects_for_user
 from rest_framework import mixins, status, viewsets
+from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
 from core.models import Store
-from core.serializers import StoreConnectSerializer, StoreSerializer
-from core.services import exchange_shopify_code
+from core.serializers import StoreConnectSerializer, StoreInstallSerializer, StoreSerializer
+from core.services import build_authorization_url, exchange_shopify_code
 
 
 class StoreViewSet(mixins.CreateModelMixin, mixins.ListModelMixin, viewsets.GenericViewSet):
@@ -14,6 +15,8 @@ class StoreViewSet(mixins.CreateModelMixin, mixins.ListModelMixin, viewsets.Gene
     def get_serializer_class(self):
         if self.action == "create":
             return StoreConnectSerializer
+        if self.action == "install":
+            return StoreInstallSerializer
         return StoreSerializer
 
     def get_queryset(self):
@@ -23,11 +26,10 @@ class StoreViewSet(mixins.CreateModelMixin, mixins.ListModelMixin, viewsets.Gene
         serializer = StoreConnectSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 
-        params = serializer.validated_data
-        shop = params["shop"]
+        shop = serializer.validated_data["shop"]
 
         try:
-            shopify_data = exchange_shopify_code(shop, params)
+            shopify_data = exchange_shopify_code(shop, dict(request.data))
         except ValueError as e:
             return Response({"detail": str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
@@ -43,3 +45,17 @@ class StoreViewSet(mixins.CreateModelMixin, mixins.ListModelMixin, viewsets.Gene
         assign_perm("can_manage", request.user, store)
 
         return Response(StoreSerializer(store).data, status=status.HTTP_201_CREATED)
+
+    @action(detail=False, methods=["get"], url_path="install")
+    def install(self, request):
+        serializer = StoreInstallSerializer(data=request.query_params)
+        serializer.is_valid(raise_exception=True)
+
+        shop = serializer.validated_data["shop"]
+
+        try:
+            authorization_url = build_authorization_url(shop, serializer.validated_data)
+        except ValueError as e:
+            return Response({"detail": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+        return Response({"authorization_url": authorization_url})

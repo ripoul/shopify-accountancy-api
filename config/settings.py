@@ -3,12 +3,13 @@ from pathlib import Path
 from urllib.parse import parse_qs, unquote, urlparse
 
 from decouple import config
+from dotenv import load_dotenv
 
 BASE_DIR = Path(__file__).resolve().parent.parent
+load_dotenv(BASE_DIR / ".env")
 
 SECRET_KEY = config("SECRET_KEY", default="django-insecure-change-me-in-production")
 DEBUG = config("DEBUG", default=True, cast=bool)
-ALLOWED_HOSTS = config("ALLOWED_HOSTS", default="localhost,127.0.0.1", cast=lambda v: v.split(","))
 
 INSTALLED_APPS = [
     "django.contrib.admin",
@@ -18,6 +19,7 @@ INSTALLED_APPS = [
     "django.contrib.messages",
     "django.contrib.staticfiles",
     # third-party
+    "corsheaders",
     "rest_framework",
     "guardian",
     "drf_spectacular",
@@ -27,6 +29,7 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
+    "corsheaders.middleware.CorsMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
@@ -124,6 +127,11 @@ DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 ANONYMOUS_USER_NAME = None
 
-SHOPIFY_API_KEY = config("SHOPIFY_API_KEY", default="")
-SHOPIFY_API_SECRET = config("SHOPIFY_API_SECRET", default="")
+SHOPIFY_API_KEY = config("SHOPIFY_API_KEY")
+SHOPIFY_API_SECRET = config("SHOPIFY_API_SECRET")
 SHOPIFY_API_VERSION = config("SHOPIFY_API_VERSION", default="2025-01")
+SHOPIFY_SCOPES = config("SHOPIFY_SCOPES")
+SHOPIFY_REDIRECT_URI = config("SHOPIFY_REDIRECT_URI")
+
+CORS_ALLOWED_ORIGINS = config("CORS_ALLOWED_ORIGINS", default="", cast=lambda v: v.split(","))
+ALLOWED_HOSTS = config("ALLOWED_HOSTS", default="localhost,127.0.0.1", cast=lambda v: v.split(","))
