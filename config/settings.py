@@ -133,5 +133,9 @@ SHOPIFY_API_VERSION = config("SHOPIFY_API_VERSION", default="2025-01")
 SHOPIFY_SCOPES = config("SHOPIFY_SCOPES")
 SHOPIFY_REDIRECT_URI = config("SHOPIFY_REDIRECT_URI")
 
-CORS_ALLOWED_ORIGINS = config("CORS_ALLOWED_ORIGINS", default="", cast=lambda v: v.split(","))
+CORS_ALLOWED_ORIGINS = config(
+    "CORS_ALLOWED_ORIGINS",
+    default="",
+    cast=lambda v: [origin for origin in v.split(",") if origin],
+)
 ALLOWED_HOSTS = config("ALLOWED_HOSTS", default="localhost,127.0.0.1", cast=lambda v: v.split(","))
