@@ -54,7 +54,7 @@ class StoreViewSet(mixins.CreateModelMixin, mixins.ListModelMixin, viewsets.Gene
         shop = serializer.validated_data["shop"]
 
         try:
-            authorization_url = build_authorization_url(shop, serializer.validated_data)
+            authorization_url = build_authorization_url(shop, request.query_params.dict())
         except ValueError as e:
             return Response({"detail": str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
