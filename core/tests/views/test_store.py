@@ -3,7 +3,7 @@ from unittest.mock import patch
 from django.contrib.auth.models import User
 from django.test import TestCase
 from django.urls import reverse
-from guardian.shortcuts import get_objects_for_user
+from guardian.shortcuts import assign_perm, get_objects_for_user
 from rest_framework import status
 from rest_framework.test import APIClient
 
@@ -21,6 +21,13 @@ SHOPIFY_EXCHANGE_RESULT = {
     "access_token": "shpat_test_token",
     "scopes": "read_orders,read_products",
     "name": "Test Store",
+}
+
+SHOPIFY_INSTALL_PARAMS = {
+    "shop": "test-store.myshopify.com",
+    "hmac": "validhmac",
+    "host": "aGVsbG8=",
+    "timestamp": "1234567890",
 }
 
 
@@ -120,14 +127,6 @@ class StoreListTest(TestCase):
         self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
 
 
-SHOPIFY_INSTALL_PARAMS = {
-    "shop": "test-store.myshopify.com",
-    "hmac": "validhmac",
-    "host": "aGVsbG8=",
-    "timestamp": "1234567890",
-}
-
-
 class StoreInstallTest(TestCase):
     def setUp(self):
         self.client = APIClient()
@@ -177,3 +176,49 @@ class StoreInstallTest(TestCase):
         self.client.credentials()
         response = self.client.get(self.url, SHOPIFY_INSTALL_PARAMS)
         self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+
+
+class StoreImportProductsTest(TestCase):
+    def setUp(self):
+        self.client = APIClient()
+        self.user = User.objects.create_user(
+            username="owner@example.com",
+            email="owner@example.com",
+            password="strongpassword",
+        )
+        self.store = Store.objects.create(
+            shop_domain="test.myshopify.com",
+            name="Test Store",
+            access_token="shpat_test",
+        )
+        assign_perm("can_manage", self.user, self.store)
+        self._authenticate(self.user)
+        self.url = reverse("store-import-products", kwargs={"pk": self.store.pk})
+
+    def _authenticate(self, user):
+        response = self.client.post(
+            reverse("token_obtain_pair"),
+            {"username": user.username, "password": "strongpassword"},
+        )
+        self.client.credentials(HTTP_AUTHORIZATION=f"Bearer {response.data['access']}")
+
+    @patch("core.views.store.import_products")
+    def test_success_returns_204(self, _mock):
+        response = self.client.post(self.url)
+        self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
+
+    @patch("core.views.store.import_products")
+    def test_calls_import_products_with_store(self, mock_import):
+        self.client.post(self.url)
+        mock_import.assert_called_once_with(self.store)
+
+    def test_unauthenticated_returns_401(self):
+        self.client.credentials()
+        response = self.client.post(self.url)
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+
+    def test_store_without_permission_returns_404(self):
+        other_store = Store.objects.create(shop_domain="other.myshopify.com", name="Other", access_token="shpat_other")
+        url = reverse("store-import-products", kwargs={"pk": other_store.pk})
+        response = self.client.post(url)
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)

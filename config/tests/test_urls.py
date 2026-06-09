@@ -44,3 +44,20 @@ class JWTViewsTest(TestCase):
     def test_refresh_token_invalid(self):
         response = self.client.post(reverse("token_refresh"), {"refresh": "not-a-valid-token"})
         self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+
+
+class OpenAPITest(TestCase):
+    def setUp(self):
+        self.client = APIClient()
+
+    def test_schema_endpoint(self):
+        response = self.client.get(reverse("schema"))
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+    def test_swagger_ui(self):
+        response = self.client.get(reverse("swagger-ui"))
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+    def test_redoc(self):
+        response = self.client.get(reverse("redoc"))
+        self.assertEqual(response.status_code, status.HTTP_200_OK)

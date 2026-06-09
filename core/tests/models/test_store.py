@@ -1,3 +1,4 @@
+from django.db import IntegrityError
 from django.test import TestCase
 
 from core.models import Store
@@ -16,8 +17,6 @@ class StoreModelTest(TestCase):
         self.assertEqual(str(self.store), "my-shop.myshopify.com")
 
     def test_shop_domain_is_unique(self):
-        from django.db import IntegrityError
-
         with self.assertRaises(IntegrityError):
             Store.objects.create(
                 shop_domain="my-shop.myshopify.com",
