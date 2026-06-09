@@ -4,9 +4,10 @@ from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
+from core.business_logic.import_products import import_products
 from core.models import Store
 from core.serializers import StoreConnectSerializer, StoreInstallSerializer, StoreSerializer
-from core.services import build_authorization_url, exchange_shopify_code
+from core.shopify import build_authorization_url, exchange_shopify_code
 
 
 class StoreViewSet(mixins.CreateModelMixin, mixins.ListModelMixin, viewsets.GenericViewSet):
@@ -45,6 +46,12 @@ class StoreViewSet(mixins.CreateModelMixin, mixins.ListModelMixin, viewsets.Gene
         assign_perm("can_manage", request.user, store)
 
         return Response(StoreSerializer(store).data, status=status.HTTP_201_CREATED)
+
+    @action(detail=True, methods=["post"], url_path="import_products")
+    def import_products(self, request, pk=None):
+        store = self.get_object()
+        import_products(store)
+        return Response(status=status.HTTP_204_NO_CONTENT)
 
     @action(detail=False, methods=["get"], url_path="install")
     def install(self, request):
