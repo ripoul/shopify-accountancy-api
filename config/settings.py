@@ -127,6 +127,7 @@ USE_I18N = True
 USE_TZ = True
 
 STATIC_URL = "static/"
+STATIC_ROOT = BASE_DIR / "staticfiles"
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 ANONYMOUS_USER_NAME = None
@@ -139,6 +140,11 @@ SHOPIFY_REDIRECT_URI = config("SHOPIFY_REDIRECT_URI")
 
 CORS_ALLOWED_ORIGINS = config(
     "CORS_ALLOWED_ORIGINS",
+    default="",
+    cast=lambda v: [origin for origin in v.split(",") if origin],
+)
+CSRF_TRUSTED_ORIGINS = config(
+    "CSRF_TRUSTED_ORIGINS",
     default="",
     cast=lambda v: [origin for origin in v.split(",") if origin],
 )

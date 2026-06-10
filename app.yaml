@@ -1,0 +1,11 @@
+runtime: python313
+entrypoint: gunicorn -b :$PORT config.wsgi:application
+
+handlers:
+  - url: /static
+    static_dir: staticfiles
+  - url: /.*
+    script: auto
+
+automatic_scaling:
+  max_instances: 2
