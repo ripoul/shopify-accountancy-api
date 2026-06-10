@@ -1,3 +1,4 @@
 from .product import ProductFilter
+from .purchase import PurchaseFilter
 
-__all__ = ["ProductFilter"]
+__all__ = ["ProductFilter", "PurchaseFilter"]
