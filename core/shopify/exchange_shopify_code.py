@@ -12,7 +12,13 @@ def exchange_shopify_code(shop: str, params: dict) -> dict:
     if not shopify.Session.validate_params(params):
         raise ValueError("HMAC invalide.")
 
-    access_token = session.request_token(params)
+    print(params)
+    print(type(params))
+    try:
+        access_token = session.request_token(params)
+    except Exception as e:
+        print(f"Error: {e}")
+        raise
 
     shopify.ShopifyResource.activate_session(session)
     shop_info = shopify.Shop.current()
