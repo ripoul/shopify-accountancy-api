@@ -1,5 +1,5 @@
 runtime: python313
-entrypoint: gunicorn -b :$PORT config.wsgi:application
+entrypoint: gunicorn -b :$PORT --timeout 60 config.wsgi:application
 
 handlers:
   - url: /static
