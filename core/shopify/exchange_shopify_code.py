@@ -19,11 +19,14 @@ def exchange_shopify_code(shop: str, params: dict) -> dict:
     except Exception as e:
         print(f"Error: {e}")
         raise
+    print("access token ok")
 
     shopify.ShopifyResource.activate_session(session)
+    print("session activated")
     shop_info = shopify.Shop.current()
+    print("shop info ok")
     shopify.ShopifyResource.clear_session()
-
+    print("session cleared")
     return {
         "access_token": access_token,
         "scopes": session.access_scopes,
