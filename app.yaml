@@ -7,5 +7,8 @@ handlers:
   - url: /.*
     script: auto
 
+vpc_access_connector:
+  name: projects/shopify-accountancy/locations/europe-west1/connectors/ext-api
+
 automatic_scaling:
   max_instances: 2
