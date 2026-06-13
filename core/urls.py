@@ -2,7 +2,11 @@ from django.urls import include, path
 from rest_framework.routers import DefaultRouter
 
 from .views import (
+    BankTransactionViewSet,
+    CashTransactionViewSet,
     CollectionViewSet,
+    OrderExpenseViewSet,
+    OrderViewSet,
     ProductVariantViewSet,
     ProductViewSet,
     PurchaseViewSet,
@@ -19,6 +23,14 @@ router.register(r"stores/(?P<store_pk>\d+)/products/variants", ProductVariantVie
 router.register(r"stores/(?P<store_pk>\d+)/products/collections", CollectionViewSet, basename="collection")
 router.register(r"stores/(?P<store_pk>\d+)/suppliers", SupplierViewSet, basename="supplier")
 router.register(r"stores/(?P<store_pk>\d+)/purchases", PurchaseViewSet, basename="purchase")
+router.register(r"stores/(?P<store_pk>\d+)/orders", OrderViewSet, basename="order")
+router.register(
+    r"stores/(?P<store_pk>\d+)/orders/(?P<order_pk>\d+)/expenses",
+    OrderExpenseViewSet,
+    basename="order-expense",
+)
+router.register(r"stores/(?P<store_pk>\d+)/bank-transactions", BankTransactionViewSet, basename="bank-transaction")
+router.register(r"stores/(?P<store_pk>\d+)/cash-transactions", CashTransactionViewSet, basename="cash-transaction")
 
 urlpatterns = [
     path("users/", UserCreateView.as_view(), name="user-create"),
