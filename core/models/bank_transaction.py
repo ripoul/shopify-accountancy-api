@@ -9,6 +9,7 @@ from .store import Store
 class BankTransaction(models.Model):
     class Source(models.TextChoices):
         ORDER = "ORDER", "Order"
+        PURCHASE = "PURCHASE", "Purchase"
         EMPTY_CASHBOX = "EMPTY_CASHBOX", "Empty Cashbox"
         FILL_CASHBOX = "FILL_CASHBOX", "Fill Cashbox"
         OTHER = "OTHER", "Other"
