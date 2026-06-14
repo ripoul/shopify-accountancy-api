@@ -146,27 +146,41 @@ class BankTransactionListTest(BaseBankTransactionViewSetTestCase):
 
 class BankTransactionCreateTest(BaseBankTransactionViewSetTestCase):
     def test_create_returns_201(self):
-        response = self.client.post(self.list_url, {"title": "Virement", "date": "2024-03-15", "amount": "100.00"})
+        response = self.client.post(
+            self.list_url, {"title": "Virement", "date": "2024-03-15", "amount": "100.00", "source": "OTHER"}
+        )
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
 
-    def test_create_sets_source_other(self):
-        self.client.post(self.list_url, {"title": "Virement", "date": "2024-03-15", "amount": "100.00"})
+    def test_create_without_source_returns_400(self):
+        response = self.client.post(self.list_url, {"title": "Virement", "date": "2024-03-15", "amount": "100.00"})
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_create_respects_source_field(self):
+        self.client.post(
+            self.list_url, {"title": "Virement", "date": "2024-03-15", "amount": "100.00", "source": "OTHER"}
+        )
         txn = BankTransaction.objects.get(store=self.store)
         self.assertEqual(txn.source, BankTransaction.Source.OTHER)
 
     def test_create_links_to_store(self):
-        self.client.post(self.list_url, {"title": "Virement", "date": "2024-03-15", "amount": "100.00"})
+        self.client.post(
+            self.list_url, {"title": "Virement", "date": "2024-03-15", "amount": "100.00", "source": "OTHER"}
+        )
         txn = BankTransaction.objects.get(store=self.store)
         self.assertEqual(txn.store, self.store)
 
     def test_create_increments_store_bank_amount(self):
-        self.client.post(self.list_url, {"title": "Virement", "date": "2024-03-15", "amount": "100.00"})
+        self.client.post(
+            self.list_url, {"title": "Virement", "date": "2024-03-15", "amount": "100.00", "source": "OTHER"}
+        )
         self.store.refresh_from_db()
         self.assertEqual(self.store.bank_amount, Decimal("100.00"))
 
     def test_unauthenticated_returns_401(self):
         self.client.credentials()
-        response = self.client.post(self.list_url, {"title": "Virement", "date": "2024-03-15", "amount": "100.00"})
+        response = self.client.post(
+            self.list_url, {"title": "Virement", "date": "2024-03-15", "amount": "100.00", "source": "OTHER"}
+        )
         self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
 
 
@@ -194,11 +208,11 @@ class BankTransactionUpdateTest(BaseBankTransactionViewSetTestCase):
         txn.refresh_from_db()
         self.assertEqual(txn.amount, Decimal("75.00"))
 
-    def test_source_is_read_only(self):
+    def test_source_can_be_updated(self):
         txn = self._create_transaction(source=BankTransaction.Source.OTHER)
-        self.client.patch(self.detail_url(txn), {"source": "ORDER"})
+        self.client.patch(self.detail_url(txn), {"source": "EMPTY_CASHBOX"})
         txn.refresh_from_db()
-        self.assertEqual(txn.source, BankTransaction.Source.OTHER)
+        self.assertEqual(txn.source, BankTransaction.Source.EMPTY_CASHBOX)
 
     def test_unauthenticated_returns_401(self):
         txn = self._create_transaction()

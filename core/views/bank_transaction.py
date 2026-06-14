@@ -27,4 +27,4 @@ class BankTransactionViewSet(
 
     def perform_create(self, serializer):
         store = get_store_for_user(self.request.user, self.kwargs["store_pk"])
-        serializer.save(store=store, source=BankTransaction.Source.OTHER)
+        serializer.save(store=store)

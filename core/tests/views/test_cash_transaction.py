@@ -133,27 +133,48 @@ class CashTransactionListTest(BaseCashTransactionViewSetTestCase):
 
 class CashTransactionCreateTest(BaseCashTransactionViewSetTestCase):
     def test_create_returns_201(self):
-        response = self.client.post(self.list_url, {"title": "Espèces", "date": "2024-03-15", "amount": "20.00"})
+        response = self.client.post(
+            self.list_url, {"title": "Espèces", "date": "2024-03-15", "amount": "20.00", "source": "ADD_MONEY"}
+        )
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
 
-    def test_create_sets_source_order(self):
-        self.client.post(self.list_url, {"title": "Espèces", "date": "2024-03-15", "amount": "20.00"})
+    def test_create_without_source_returns_400(self):
+        response = self.client.post(self.list_url, {"title": "Espèces", "date": "2024-03-15", "amount": "20.00"})
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_create_respects_source_field(self):
+        self.client.post(
+            self.list_url, {"title": "Retrait", "date": "2024-03-15", "amount": "-13.00", "source": "WITHDRAW_MONEY"}
+        )
         txn = CashTransaction.objects.get(store=self.store)
-        self.assertEqual(txn.source, CashTransaction.Source.ORDER)
+        self.assertEqual(txn.source, CashTransaction.Source.WITHDRAW_MONEY)
+
+    def test_create_with_add_money_source(self):
+        self.client.post(
+            self.list_url, {"title": "Dépôt", "date": "2024-03-15", "amount": "50.00", "source": "ADD_MONEY"}
+        )
+        txn = CashTransaction.objects.get(store=self.store)
+        self.assertEqual(txn.source, CashTransaction.Source.ADD_MONEY)
 
     def test_create_links_to_store(self):
-        self.client.post(self.list_url, {"title": "Espèces", "date": "2024-03-15", "amount": "20.00"})
+        self.client.post(
+            self.list_url, {"title": "Espèces", "date": "2024-03-15", "amount": "20.00", "source": "ADD_MONEY"}
+        )
         txn = CashTransaction.objects.get(store=self.store)
         self.assertEqual(txn.store, self.store)
 
     def test_create_increments_store_cash_amount(self):
-        self.client.post(self.list_url, {"title": "Espèces", "date": "2024-03-15", "amount": "20.00"})
+        self.client.post(
+            self.list_url, {"title": "Espèces", "date": "2024-03-15", "amount": "20.00", "source": "ADD_MONEY"}
+        )
         self.store.refresh_from_db()
         self.assertEqual(self.store.cash_amount, Decimal("20.00"))
 
     def test_unauthenticated_returns_401(self):
         self.client.credentials()
-        response = self.client.post(self.list_url, {"title": "Espèces", "date": "2024-03-15", "amount": "20.00"})
+        response = self.client.post(
+            self.list_url, {"title": "Espèces", "date": "2024-03-15", "amount": "20.00", "source": "ADD_MONEY"}
+        )
         self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
 
 
@@ -181,11 +202,11 @@ class CashTransactionUpdateTest(BaseCashTransactionViewSetTestCase):
         txn.refresh_from_db()
         self.assertEqual(txn.amount, Decimal("35.00"))
 
-    def test_source_is_read_only(self):
+    def test_source_can_be_updated(self):
         txn = self._create_transaction()
         self.client.patch(self.detail_url(txn), {"source": "OTHER"})
         txn.refresh_from_db()
-        self.assertEqual(txn.source, CashTransaction.Source.ORDER)
+        self.assertEqual(txn.source, CashTransaction.Source.OTHER)
 
     def test_unauthenticated_returns_401(self):
         txn = self._create_transaction()
