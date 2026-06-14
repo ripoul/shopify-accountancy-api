@@ -1,3 +1,5 @@
+from decimal import Decimal
+
 from django.db.models.signals import post_save
 from django.dispatch import receiver
 
@@ -11,6 +13,6 @@ def create_bank_transaction_for_purchase(sender, instance, created, **kwargs):
             store=instance.store,
             title=f"Purchase {instance.supplier.name} - {instance.price}",
             date=instance.order_date,
-            amount=-instance.price,
+            amount=-Decimal(str(instance.price)),
             source=BankTransaction.Source.PURCHASE,
         )
