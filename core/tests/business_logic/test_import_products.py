@@ -9,9 +9,9 @@ SHOPIFY_PRODUCTS = [
     {
         "id": "gid://shopify/Product/1",
         "title": "T-shirt",
-        "collections": {"edges": [{"node": {"id": "gid://shopify/Collection/1", "title": "Nouveautés"}}]},
+        "collections": {"edges": [{"node": {"id": "gid://shopify/Collection/1", "title": "New arrivals"}}]},
         "variants": {
-            "edges": [{"node": {"id": "gid://shopify/ProductVariant/1", "title": "M / Rouge", "price": "29.99"}}]
+            "edges": [{"node": {"id": "gid://shopify/ProductVariant/1", "title": "M / Red", "price": "29.99"}}]
         },
     }
 ]
@@ -47,7 +47,7 @@ class ImportProductsTest(TestCase):
         import_products(self.store)
 
         variant = ProductVariant.objects.get(external_id="gid://shopify/ProductVariant/1")
-        self.assertEqual(variant.title, "M / Rouge")
+        self.assertEqual(variant.title, "M / Red")
         self.assertEqual(str(variant.price), "29.99")
 
     @patch("core.business_logic.import_products.get_product", return_value=SHOPIFY_PRODUCTS)
@@ -60,7 +60,7 @@ class ImportProductsTest(TestCase):
         import_products(self.store)
 
         variant = ProductVariant.objects.get(external_id="gid://shopify/ProductVariant/1")
-        self.assertEqual(variant.title, "M / Rouge")
+        self.assertEqual(variant.title, "M / Red")
         self.assertEqual(str(variant.price), "29.99")
 
     @patch("core.business_logic.import_products.get_product", return_value=SHOPIFY_PRODUCTS)
@@ -68,7 +68,7 @@ class ImportProductsTest(TestCase):
         import_products(self.store)
 
         collection = Collection.objects.get(external_id="gid://shopify/Collection/1")
-        self.assertEqual(collection.title, "Nouveautés")
+        self.assertEqual(collection.title, "New arrivals")
 
     @patch("core.business_logic.import_products.get_product", return_value=SHOPIFY_PRODUCTS)
     def test_upserts_existing_collection(self, _mock):
@@ -77,14 +77,14 @@ class ImportProductsTest(TestCase):
         import_products(self.store)
 
         self.assertEqual(Collection.objects.filter(store=self.store).count(), 1)
-        self.assertEqual(Collection.objects.get(external_id="gid://shopify/Collection/1").title, "Nouveautés")
+        self.assertEqual(Collection.objects.get(external_id="gid://shopify/Collection/1").title, "New arrivals")
 
     @patch("core.business_logic.import_products.get_product", return_value=SHOPIFY_PRODUCTS)
     def test_sets_product_collections(self, _mock):
         import_products(self.store)
 
         product = Product.objects.get(external_id="gid://shopify/Product/1")
-        self.assertIn("Nouveautés", list(product.collections.values_list("title", flat=True)))
+        self.assertIn("New arrivals", list(product.collections.values_list("title", flat=True)))
 
     @patch("core.business_logic.import_products.get_product")
     def test_removes_stale_collection_from_product(self, mock_get):
@@ -103,7 +103,7 @@ class ImportProductsTest(TestCase):
             SHOPIFY_PRODUCTS[0],
             {
                 "id": "gid://shopify/Product/2",
-                "title": "Pantalon",
+                "title": "Pants",
                 "collections": {"edges": []},
                 "variants": {
                     "edges": [{"node": {"id": "gid://shopify/ProductVariant/2", "title": "L", "price": "49.99"}}]

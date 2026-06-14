@@ -33,6 +33,7 @@ class ProductViewSet(mixins.ListModelMixin, viewsets.GenericViewSet):
                 min_price=Min("variants__price"),
                 min_collection_title=Min("collections__title"),
             )
+            .order_by("title")
         )
 
     @action(detail=False, methods=["post"], url_path="import_products")
