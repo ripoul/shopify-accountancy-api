@@ -6,8 +6,8 @@ from rest_framework.response import Response
 
 from core.business_logic.import_orders import import_orders as upsert_orders
 from core.filters import OrderFilter
-from core.models import Order, OrderExpense
-from core.serializers import OrderExpenseSerializer, OrderSerializer
+from core.models import Order, OrderExpense, OrderLineItem
+from core.serializers import OrderExpenseSerializer, OrderLineItemSerializer, OrderSerializer
 
 from .base import get_store_for_user
 
@@ -73,3 +73,21 @@ class OrderExpenseViewSet(
         order = instance.order
         instance.delete()
         order.recompute_financials()
+
+
+class OrderLineItemViewSet(
+    mixins.RetrieveModelMixin,
+    mixins.UpdateModelMixin,
+    viewsets.GenericViewSet,
+):
+    serializer_class = OrderLineItemSerializer
+    lookup_url_kwarg = "line_item_pk"
+
+    def get_queryset(self):
+        store = get_store_for_user(self.request.user, self.kwargs["store_pk"])
+        order = get_object_or_404(Order, store=store, pk=self.kwargs["order_pk"])
+        return OrderLineItem.objects.filter(order=order)
+
+    def perform_update(self, serializer):
+        order_line_item = serializer.save()
+        order_line_item.order.recompute_financials()

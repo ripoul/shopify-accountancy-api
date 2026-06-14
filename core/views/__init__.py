@@ -1,6 +1,6 @@
 from .bank_transaction import BankTransactionViewSet
 from .cash_transaction import CashTransactionViewSet
-from .order import OrderExpenseViewSet, OrderViewSet
+from .order import OrderExpenseViewSet, OrderLineItemViewSet, OrderViewSet
 from .product import CollectionViewSet, ProductViewSet
 from .product_variant import ProductVariantViewSet
 from .purchase import PurchaseViewSet
@@ -21,4 +21,5 @@ __all__ = [
     "SupplierViewSet",
     "UserCreateView",
     "UserMeView",
+    "OrderLineItemViewSet",
 ]

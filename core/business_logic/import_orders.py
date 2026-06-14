@@ -78,17 +78,23 @@ def _resolve_product(store, product_data):
 def _import_line_items(store, order, order_data):
     for edge in order_data["lineItems"]["edges"]:
         node = edge["node"]
-        OrderLineItem.objects.update_or_create(
+        variant = _resolve_variant(store, node.get("variant"))
+        line_item, created = OrderLineItem.objects.update_or_create(
             order=order,
             external_id=node["id"],
             defaults={
                 "title": node["title"],
                 "quantity": node["quantity"],
                 "unit_price": _money(node.get("originalUnitPriceSet")),
-                "variant": _resolve_variant(store, node.get("variant")),
+                "variant": variant,
                 "product": _resolve_product(store, node.get("product")),
             },
         )
+        if created:
+            line_item.distributor_price = (
+                variant.distributor_price if variant and variant.distributor_price else Decimal("0")
+            )
+            line_item.save(update_fields=["distributor_price"])
 
 
 def _import_shopify_fee(order, sales):

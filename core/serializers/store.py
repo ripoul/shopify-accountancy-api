@@ -21,5 +21,5 @@ class StoreConnectSerializer(serializers.Serializer):
 class StoreSerializer(serializers.ModelSerializer):
     class Meta:
         model = Store
-        fields = ["id", "shop_domain", "name", "scopes", "created_at", "updated_at"]
+        fields = ["id", "shop_domain", "name", "bank_amount", "cash_amount", "scopes", "created_at", "updated_at"]
         read_only_fields = fields

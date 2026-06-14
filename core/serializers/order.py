@@ -6,8 +6,8 @@ from core.models import Order, OrderDiscount, OrderExpense, OrderLineItem
 class OrderLineItemSerializer(serializers.ModelSerializer):
     class Meta:
         model = OrderLineItem
-        fields = ["id", "external_id", "title", "quantity", "unit_price", "variant", "product"]
-        read_only_fields = fields
+        fields = ["id", "external_id", "title", "quantity", "unit_price", "distributor_price", "variant", "product"]
+        read_only_fields = ["id", "external_id", "title", "quantity", "unit_price", "variant", "product"]
 
 
 class OrderDiscountSerializer(serializers.ModelSerializer):

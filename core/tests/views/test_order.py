@@ -10,7 +10,7 @@ from guardian.shortcuts import assign_perm
 from rest_framework import status
 from rest_framework.test import APIClient
 
-from core.models import Order, OrderExpense, Store
+from core.models import Order, OrderExpense, OrderLineItem, Store
 
 
 class BaseOrderViewSetTestCase(TestCase):
@@ -336,4 +336,91 @@ class OrderExpenseViewSetTest(BaseOrderViewSetTestCase):
             kwargs={"store_pk": other_store.pk, "order_pk": self.order.pk},
         )
         response = self.client.get(url)
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+
+
+class OrderLineItemViewSetTest(BaseOrderViewSetTestCase):
+    def setUp(self):
+        super().setUp()
+        self.order = self._create_order()
+        self.line_item = OrderLineItem.objects.create(
+            order=self.order,
+            external_id="gid://shopify/LineItem/1",
+            title="Test Product",
+            quantity=2,
+            unit_price=Decimal("14.99"),
+            distributor_price=Decimal("8.00"),
+        )
+
+    def _detail_url(self, line_item=None):
+        item = line_item or self.line_item
+        return reverse(
+            "order-line-item-detail",
+            kwargs={"store_pk": self.store.pk, "order_pk": self.order.pk, "line_item_pk": item.pk},
+        )
+
+    def test_retrieve_returns_200(self):
+        response = self.client.get(self._detail_url())
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+    def test_retrieve_returns_correct_data(self):
+        response = self.client.get(self._detail_url())
+        self.assertEqual(response.data["title"], "Test Product")
+        self.assertEqual(response.data["quantity"], 2)
+        self.assertEqual(Decimal(response.data["distributor_price"]), Decimal("8.00"))
+
+    def test_retrieve_unauthenticated_returns_401(self):
+        self.client.credentials()
+        response = self.client.get(self._detail_url())
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+
+    def test_retrieve_store_without_permission_returns_404(self):
+        other_store = Store.objects.create(shop_domain="other.myshopify.com", name="Other", access_token="shpat_other")
+        url = reverse(
+            "order-line-item-detail",
+            kwargs={"store_pk": other_store.pk, "order_pk": self.order.pk, "line_item_pk": self.line_item.pk},
+        )
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+
+    def test_retrieve_wrong_order_returns_404(self):
+        other_order = self._create_order(name="#9999", external_id="gid://shopify/Order/9")
+        url = reverse(
+            "order-line-item-detail",
+            kwargs={"store_pk": self.store.pk, "order_pk": other_order.pk, "line_item_pk": self.line_item.pk},
+        )
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+
+    def test_patch_distributor_price_returns_200(self):
+        response = self.client.patch(self._detail_url(), {"distributor_price": "12.50"})
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+    def test_patch_distributor_price_updates_value(self):
+        self.client.patch(self._detail_url(), {"distributor_price": "12.50"})
+        self.line_item.refresh_from_db()
+        self.assertEqual(self.line_item.distributor_price, Decimal("12.50"))
+
+    def test_patch_triggers_recompute_financials(self):
+        with patch.object(Order, "recompute_financials") as mock_recompute:
+            self.client.patch(self._detail_url(), {"distributor_price": "12.50"})
+            mock_recompute.assert_called_once()
+
+    def test_patch_read_only_field_is_ignored(self):
+        self.client.patch(self._detail_url(), {"title": "Hacked", "distributor_price": "5.00"})
+        self.line_item.refresh_from_db()
+        self.assertEqual(self.line_item.title, "Test Product")
+
+    def test_patch_unauthenticated_returns_401(self):
+        self.client.credentials()
+        response = self.client.patch(self._detail_url(), {"distributor_price": "12.50"})
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+
+    def test_patch_store_without_permission_returns_404(self):
+        other_store = Store.objects.create(shop_domain="other2.myshopify.com", name="Other2", access_token="shpat_o2")
+        url = reverse(
+            "order-line-item-detail",
+            kwargs={"store_pk": other_store.pk, "order_pk": self.order.pk, "line_item_pk": self.line_item.pk},
+        )
+        response = self.client.patch(url, {"distributor_price": "12.50"})
         self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)

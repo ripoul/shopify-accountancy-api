@@ -5,7 +5,7 @@ from django.db import models
 from .product import Product, ProductVariant
 from .store import Store
 
-AFTER_TAX_RATE = Decimal("0.30")
+AFTER_TAX_RATE = Decimal("0.134")
 
 
 class Order(models.Model):
@@ -42,8 +42,8 @@ class Order(models.Model):
     def recompute_financials(self):
         purchase_cost = Decimal("0")
         for item in self.line_items.all():
-            if item.variant and item.variant.distributor_price is not None:
-                purchase_cost += item.variant.distributor_price * item.quantity
+            if item.distributor_price:
+                purchase_cost += item.distributor_price * item.quantity
 
         expenses = list(self.expenses.all())
         total_expenses = sum((expense.amount for expense in expenses), Decimal("0"))
@@ -75,6 +75,7 @@ class OrderLineItem(models.Model):
     title = models.CharField(max_length=255)
     quantity = models.PositiveIntegerField(default=0)
     unit_price = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal("0"))
+    distributor_price = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal("0"))
     variant = models.ForeignKey(
         ProductVariant,
         on_delete=models.SET_NULL,

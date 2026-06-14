@@ -1,7 +1,7 @@
 from django.db.models.signals import post_save
 from django.dispatch import receiver
 
-from core.models import BankTransaction, CashTransaction, Order
+from core.models import BankTransaction, CashTransaction, Order, OrderExpense
 
 
 @receiver(post_save, sender=Order)
@@ -28,4 +28,16 @@ def create_cash_transaction_for_order(sender, instance, **kwargs):
                 "amount": instance.shopify_transfer_amount,
                 "source": BankTransaction.Source.ORDER,
             },
+        )
+
+
+@receiver(post_save, sender=OrderExpense)
+def create_bank_transaction_for_order_expense(sender, instance, **kwargs):
+    if instance.type == OrderExpense.Type.DELIVERY:
+        BankTransaction.objects.create(
+            store=instance.order.store,
+            title=f"Delivery fee for {instance.order.name}",
+            date=instance.order.processed_at.date(),
+            amount=-instance.amount,
+            source=BankTransaction.Source.ORDER,
         )

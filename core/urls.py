@@ -6,6 +6,7 @@ from .views import (
     CashTransactionViewSet,
     CollectionViewSet,
     OrderExpenseViewSet,
+    OrderLineItemViewSet,
     OrderViewSet,
     ProductVariantViewSet,
     ProductViewSet,
@@ -28,6 +29,11 @@ router.register(
     r"stores/(?P<store_pk>\d+)/orders/(?P<order_pk>\d+)/expenses",
     OrderExpenseViewSet,
     basename="order-expense",
+)
+router.register(
+    r"stores/(?P<store_pk>\d+)/orders/(?P<order_pk>\d+)/line-items",
+    OrderLineItemViewSet,
+    basename="order-line-item",
 )
 router.register(r"stores/(?P<store_pk>\d+)/bank-transactions", BankTransactionViewSet, basename="bank-transaction")
 router.register(r"stores/(?P<store_pk>\d+)/cash-transactions", CashTransactionViewSet, basename="cash-transaction")

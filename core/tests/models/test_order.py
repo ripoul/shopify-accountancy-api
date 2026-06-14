@@ -48,6 +48,7 @@ class OrderModelTest(TestCase):
             title="T-shirt",
             quantity=2,
             unit_price=Decimal("50.00"),
+            distributor_price=Decimal("12.00"),
             variant=self.variant,
         )
 
@@ -93,6 +94,7 @@ class OrderModelTest(TestCase):
             title="T-shirt",
             quantity=1,
             unit_price=Decimal("100.00"),
+            distributor_price=Decimal("12.00"),
             variant=self.variant,
         )
 
@@ -108,8 +110,8 @@ class OrderModelTest(TestCase):
         order.recompute_financials()
 
         order.refresh_from_db()
-        # after_tax_result = net_margin - (total_price * 0.30) = 100 - 30 = 70
-        self.assertEqual(order.after_tax_result, Decimal("70.00"))
+        # after_tax_result = net_margin - (total_price * 0.134) = 100 - 13.40 = 86.60
+        self.assertEqual(order.after_tax_result, Decimal("86.60"))
 
     def test_recompute_financials_shopify_transfer_amount(self):
         order = self._create_order(total_price="100.00")
