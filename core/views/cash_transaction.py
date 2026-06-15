@@ -20,8 +20,11 @@ class CashTransactionViewSet(
     filter_backends = [DjangoFilterBackend]
     filterset_class = CashTransactionFilter
     lookup_url_kwarg = "cash_transaction_pk"
+    lookup_value_regex = r"\d+"
 
     def get_queryset(self):
+        if getattr(self, "swagger_fake_view", False):
+            return CashTransaction.objects.none()
         store = get_store_for_user(self.request.user, self.kwargs["store_pk"])
         return CashTransaction.objects.filter(store=store).order_by("-date")
 

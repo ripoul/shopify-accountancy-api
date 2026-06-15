@@ -18,7 +18,10 @@ class TaxViewSet(
     filter_backends = [DjangoFilterBackend]
     filterset_class = TaxFilter
     lookup_url_kwarg = "tax_pk"
+    lookup_value_regex = r"\d+"
 
     def get_queryset(self):
+        if getattr(self, "swagger_fake_view", False):
+            return Tax.objects.none()
         store = get_store_for_user(self.request.user, self.kwargs["store_pk"])
         return Tax.objects.filter(store=store).order_by("-quarter")

@@ -17,8 +17,11 @@ class OrderViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, viewsets.Ge
     filter_backends = [DjangoFilterBackend]
     filterset_class = OrderFilter
     lookup_url_kwarg = "order_pk"
+    lookup_value_regex = r"\d+"
 
     def get_queryset(self):
+        if getattr(self, "swagger_fake_view", False):
+            return Order.objects.none()
         store = get_store_for_user(self.request.user, self.kwargs["store_pk"])
         return (
             Order.objects.filter(store=store)
@@ -51,12 +54,15 @@ class OrderExpenseViewSet(
 ):
     serializer_class = OrderExpenseSerializer
     lookup_url_kwarg = "expense_pk"
+    lookup_value_regex = r"\d+"
 
     def _get_order(self):
         store = get_store_for_user(self.request.user, self.kwargs["store_pk"])
         return get_object_or_404(Order, store=store, pk=self.kwargs["order_pk"])
 
     def get_queryset(self):
+        if getattr(self, "swagger_fake_view", False):
+            return OrderExpense.objects.none()
         order = self._get_order()
         return OrderExpense.objects.filter(order=order, source=OrderExpense.Source.MANUAL).order_by("id")
 
@@ -82,8 +88,11 @@ class OrderLineItemViewSet(
 ):
     serializer_class = OrderLineItemSerializer
     lookup_url_kwarg = "line_item_pk"
+    lookup_value_regex = r"\d+"
 
     def get_queryset(self):
+        if getattr(self, "swagger_fake_view", False):
+            return OrderLineItem.objects.none()
         store = get_store_for_user(self.request.user, self.kwargs["store_pk"])
         order = get_object_or_404(Order, store=store, pk=self.kwargs["order_pk"])
         return OrderLineItem.objects.filter(order=order)

@@ -11,6 +11,7 @@ class ProductVariantViewSet(mixins.UpdateModelMixin, viewsets.GenericViewSet):
     serializer_class = ProductVariantSerializer
     permission_classes = [IsAuthenticated, CanManageProductVariant]
     lookup_url_kwarg = "variant_pk"
+    lookup_value_regex = r"\d+"
 
     def get_queryset(self):
         if getattr(self, "swagger_fake_view", False) or "store_pk" not in self.kwargs:
