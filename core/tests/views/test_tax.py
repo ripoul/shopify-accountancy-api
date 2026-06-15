@@ -126,11 +126,12 @@ class TaxUpdateTest(BaseTaxViewSetTestCase):
         tax.refresh_from_db()
         self.assertEqual(tax.quarter, "2024/01")
 
-    def test_amount_is_read_only(self):
+    def test_amount_is_writable(self):
         tax = self._create_tax(amount="100.00")
-        self.client.patch(self.detail_url(tax), {"amount": "999.00"}, format="json")
+        response = self.client.patch(self.detail_url(tax), {"amount": "999.00"}, format="json")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
         tax.refresh_from_db()
-        self.assertEqual(tax.amount, Decimal("100.00"))
+        self.assertEqual(tax.amount, Decimal("999.00"))
 
     def test_locked_once_payment_date_set(self):
         tax = self._create_tax(payment_date=datetime.date(2024, 4, 30))

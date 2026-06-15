@@ -9,7 +9,7 @@ class TaxSerializer(serializers.ModelSerializer):
     class Meta:
         model = Tax
         fields = ["id", "quarter", "amount", "payment_date", "bank_transaction", "created_at", "updated_at"]
-        read_only_fields = ["id", "quarter", "bank_transaction", "created_at", "updated_at"]
+        read_only_fields = ["id", "quarter", "created_at", "updated_at"]
 
     def validate(self, data):
         if self.instance and self.instance.payment_date:
