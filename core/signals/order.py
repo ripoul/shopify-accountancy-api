@@ -1,7 +1,12 @@
+from decimal import Decimal
+
+from django.db.models import Sum
 from django.db.models.signals import post_save
 from django.dispatch import receiver
 
-from core.models import BankTransaction, CashTransaction, Order, OrderExpense
+from core.models import BankTransaction, CashTransaction, Order, OrderExpense, Tax
+
+TAX_RATE = Decimal("0.134")
 
 
 @receiver(post_save, sender=Order)
@@ -29,6 +34,27 @@ def create_cash_transaction_for_order(sender, instance, **kwargs):
                 "source": BankTransaction.Source.ORDER,
             },
         )
+
+
+@receiver(post_save, sender=Order)
+def update_quarterly_tax(sender, instance, **kwargs):
+    if not instance.quarter:
+        return
+    try:
+        tax = Tax.objects.get(store=instance.store, quarter=instance.quarter)
+        if tax.payment_date:
+            return
+    except Tax.DoesNotExist:
+        pass
+
+    total = Order.objects.filter(store=instance.store, quarter=instance.quarter).aggregate(total=Sum("total_price"))[
+        "total"
+    ] or Decimal("0")
+    Tax.objects.update_or_create(
+        store=instance.store,
+        quarter=instance.quarter,
+        defaults={"amount": (total * TAX_RATE).quantize(Decimal("0.01"))},
+    )
 
 
 @receiver(post_save, sender=OrderExpense)

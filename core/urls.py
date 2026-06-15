@@ -13,6 +13,7 @@ from .views import (
     PurchaseViewSet,
     StoreViewSet,
     SupplierViewSet,
+    TaxViewSet,
     UserCreateView,
     UserMeView,
 )
@@ -37,6 +38,7 @@ router.register(
 )
 router.register(r"stores/(?P<store_pk>\d+)/bank-transactions", BankTransactionViewSet, basename="bank-transaction")
 router.register(r"stores/(?P<store_pk>\d+)/cash-transactions", CashTransactionViewSet, basename="cash-transaction")
+router.register(r"stores/(?P<store_pk>\d+)/taxes", TaxViewSet, basename="tax")
 
 urlpatterns = [
     path("users/", UserCreateView.as_view(), name="user-create"),

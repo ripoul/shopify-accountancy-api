@@ -6,6 +6,7 @@ from .product_variant import ProductVariantViewSet
 from .purchase import PurchaseViewSet
 from .store import StoreViewSet
 from .supplier import SupplierViewSet
+from .tax import TaxViewSet
 from .user import UserCreateView, UserMeView
 
 __all__ = [
@@ -13,13 +14,14 @@ __all__ = [
     "CashTransactionViewSet",
     "CollectionViewSet",
     "OrderExpenseViewSet",
+    "OrderLineItemViewSet",
     "OrderViewSet",
     "ProductVariantViewSet",
     "ProductViewSet",
     "PurchaseViewSet",
     "StoreViewSet",
     "SupplierViewSet",
+    "TaxViewSet",
     "UserCreateView",
     "UserMeView",
-    "OrderLineItemViewSet",
 ]
