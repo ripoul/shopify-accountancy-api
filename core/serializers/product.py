@@ -16,7 +16,7 @@ class ProductSerializer(serializers.ModelSerializer):
     collections = serializers.SerializerMethodField()
     variants = ProductVariantSerializer(many=True, read_only=True)
 
-    def get_collections(self, obj):
+    def get_collections(self, obj) -> list[str]:
         return [c.title for c in obj.collections.all()]
 
     class Meta:

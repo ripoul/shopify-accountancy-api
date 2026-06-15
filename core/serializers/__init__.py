@@ -11,6 +11,7 @@ from .product_variant import ProductVariantSerializer
 from .purchase import PurchaseSerializer
 from .store import StoreConnectSerializer, StoreInstallSerializer, StoreSerializer
 from .supplier import SupplierSerializer
+from .tax import TaxSerializer
 from .user import UserCreateSerializer, UserSerializer
 
 __all__ = [
@@ -28,6 +29,7 @@ __all__ = [
     "StoreInstallSerializer",
     "StoreSerializer",
     "SupplierSerializer",
+    "TaxSerializer",
     "UserCreateSerializer",
     "UserSerializer",
 ]

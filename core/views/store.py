@@ -12,6 +12,7 @@ from core.shopify import build_authorization_url, exchange_shopify_code
 
 class StoreViewSet(mixins.CreateModelMixin, mixins.ListModelMixin, viewsets.GenericViewSet):
     permission_classes = [IsAuthenticated]
+    lookup_value_regex = r"\d+"
 
     def get_serializer_class(self):
         if self.action == "create":
@@ -21,6 +22,8 @@ class StoreViewSet(mixins.CreateModelMixin, mixins.ListModelMixin, viewsets.Gene
         return StoreSerializer
 
     def get_queryset(self):
+        if getattr(self, "swagger_fake_view", False):
+            return Store.objects.none()
         return get_objects_for_user(self.request.user, "core.can_manage", Store).order_by("id")
 
     def create(self, request, *args, **kwargs):

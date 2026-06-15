@@ -4,6 +4,7 @@ from django.db import models
 
 from .order import Order
 from .store import Store
+from .tax import Tax
 
 
 class BankTransaction(models.Model):
@@ -12,6 +13,7 @@ class BankTransaction(models.Model):
         PURCHASE = "PURCHASE", "Purchase"
         EMPTY_CASHBOX = "EMPTY_CASHBOX", "Empty Cashbox"
         FILL_CASHBOX = "FILL_CASHBOX", "Fill Cashbox"
+        TAX = "TAX", "Tax"
         OTHER = "OTHER", "Other"
 
     store = models.ForeignKey(Store, on_delete=models.CASCADE, related_name="bank_transactions")
@@ -20,6 +22,13 @@ class BankTransaction(models.Model):
         Order,
         on_delete=models.CASCADE,
         related_name="bank_transactions",
+        null=True,
+        blank=True,
+    )
+    tax = models.OneToOneField(
+        Tax,
+        on_delete=models.SET_NULL,
+        related_name="bank_transaction",
         null=True,
         blank=True,
     )

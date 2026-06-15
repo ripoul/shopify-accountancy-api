@@ -15,8 +15,11 @@ class SupplierViewSet(
 ):
     serializer_class = SupplierSerializer
     lookup_url_kwarg = "supplier_pk"
+    lookup_value_regex = r"\d+"
 
     def get_queryset(self):
+        if getattr(self, "swagger_fake_view", False):
+            return Supplier.objects.none()
         store = get_store_for_user(self.request.user, self.kwargs["store_pk"])
         return Supplier.objects.filter(store=store).order_by("name")
 

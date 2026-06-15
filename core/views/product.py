@@ -25,6 +25,8 @@ class ProductViewSet(mixins.ListModelMixin, viewsets.GenericViewSet):
     filterset_class = ProductFilter
 
     def get_queryset(self):
+        if getattr(self, "swagger_fake_view", False):
+            return Product.objects.none()
         store = _get_store_for_user(self.request.user, self.kwargs["store_pk"])
         return (
             Product.objects.filter(store=store)
@@ -47,5 +49,7 @@ class CollectionViewSet(mixins.ListModelMixin, viewsets.GenericViewSet):
     serializer_class = CollectionSerializer
 
     def get_queryset(self):
+        if getattr(self, "swagger_fake_view", False):
+            return Collection.objects.none()
         store = _get_store_for_user(self.request.user, self.kwargs["store_pk"])
         return Collection.objects.filter(store=store).order_by("title")

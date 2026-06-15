@@ -3,5 +3,13 @@ from .cash_transaction import CashTransactionFilter
 from .order import OrderFilter
 from .product import ProductFilter
 from .purchase import PurchaseFilter
+from .tax import TaxFilter
 
-__all__ = ["BankTransactionFilter", "CashTransactionFilter", "OrderFilter", "ProductFilter", "PurchaseFilter"]
+__all__ = [
+    "BankTransactionFilter",
+    "CashTransactionFilter",
+    "OrderFilter",
+    "ProductFilter",
+    "PurchaseFilter",
+    "TaxFilter",
+]

@@ -5,8 +5,10 @@ from .product import Collection, Product, ProductVariant
 from .purchase import Purchase
 from .store import Store
 from .supplier import Supplier
+from .tax import Tax
 
 __all__ = [
+    "BankTransaction",
     "CashTransaction",
     "Collection",
     "Order",
@@ -18,5 +20,5 @@ __all__ = [
     "Purchase",
     "Store",
     "Supplier",
-    "BankTransaction",
+    "Tax",
 ]

@@ -19,8 +19,11 @@ class PurchaseViewSet(
     filter_backends = [DjangoFilterBackend]
     filterset_class = PurchaseFilter
     lookup_url_kwarg = "purchase_pk"
+    lookup_value_regex = r"\d+"
 
     def get_queryset(self):
+        if getattr(self, "swagger_fake_view", False):
+            return Purchase.objects.none()
         store = get_store_for_user(self.request.user, self.kwargs["store_pk"])
         return Purchase.objects.filter(store=store).select_related("supplier").order_by("-order_date")
 

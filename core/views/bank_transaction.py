@@ -20,8 +20,11 @@ class BankTransactionViewSet(
     filter_backends = [DjangoFilterBackend]
     filterset_class = BankTransactionFilter
     lookup_url_kwarg = "bank_transaction_pk"
+    lookup_value_regex = r"\d+"
 
     def get_queryset(self):
+        if getattr(self, "swagger_fake_view", False):
+            return BankTransaction.objects.none()
         store = get_store_for_user(self.request.user, self.kwargs["store_pk"])
         return BankTransaction.objects.filter(store=store).order_by("-date")
 

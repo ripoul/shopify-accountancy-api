@@ -1,3 +1,3 @@
-from . import bank_transaction, cash_transaction, order, purchase
+from . import bank_transaction, cash_transaction, order, purchase, tax
 
-__all__ = ["cash_transaction", "bank_transaction", "order", "purchase"]
+__all__ = ["bank_transaction", "cash_transaction", "order", "purchase", "tax"]
