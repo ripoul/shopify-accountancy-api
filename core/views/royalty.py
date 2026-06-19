@@ -1,4 +1,5 @@
 from django_filters.rest_framework import DjangoFilterBackend
+from drf_spectacular.utils import extend_schema
 from rest_framework import mixins, viewsets
 
 from core.filters import RoyaltyFilter
@@ -8,6 +9,7 @@ from core.serializers import RoyaltySerializer
 from .base import get_store_for_user
 
 
+@extend_schema(tags=["royalty"])
 class RoyaltyViewSet(
     mixins.ListModelMixin,
     mixins.RetrieveModelMixin,

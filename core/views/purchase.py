@@ -1,4 +1,5 @@
 from django_filters.rest_framework import DjangoFilterBackend
+from drf_spectacular.utils import extend_schema
 from rest_framework import mixins, viewsets
 
 from core.filters import PurchaseFilter
@@ -8,6 +9,7 @@ from core.serializers import PurchaseSerializer
 from .base import get_store_for_user
 
 
+@extend_schema(tags=["purchase"])
 class PurchaseViewSet(
     mixins.ListModelMixin,
     mixins.CreateModelMixin,

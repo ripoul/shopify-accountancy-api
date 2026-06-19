@@ -1,5 +1,6 @@
 from django.shortcuts import get_object_or_404
 from django_filters.rest_framework import DjangoFilterBackend
+from drf_spectacular.utils import extend_schema
 from rest_framework import mixins, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.response import Response
@@ -12,6 +13,7 @@ from core.serializers import OrderExpenseSerializer, OrderLineItemSerializer, Or
 from .base import get_store_for_user
 
 
+@extend_schema(tags=["order"])
 class OrderViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, viewsets.GenericViewSet):
     serializer_class = OrderSerializer
     filter_backends = [DjangoFilterBackend]
@@ -44,6 +46,7 @@ class OrderViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, viewsets.Ge
         return Response(status=status.HTTP_204_NO_CONTENT)
 
 
+@extend_schema(tags=["order"])
 class OrderExpenseViewSet(
     mixins.ListModelMixin,
     mixins.CreateModelMixin,
@@ -81,6 +84,7 @@ class OrderExpenseViewSet(
         order.recompute_financials()
 
 
+@extend_schema(tags=["order"])
 class OrderLineItemViewSet(
     mixins.RetrieveModelMixin,
     mixins.UpdateModelMixin,

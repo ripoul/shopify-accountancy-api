@@ -1,3 +1,4 @@
+from drf_spectacular.utils import extend_schema
 from guardian.shortcuts import assign_perm, get_objects_for_user
 from rest_framework import mixins, status, viewsets
 from rest_framework.decorators import action
@@ -10,6 +11,7 @@ from core.serializers import StoreConnectSerializer, StoreInstallSerializer, Sto
 from core.shopify import build_authorization_url, exchange_shopify_code
 
 
+@extend_schema(tags=["store"])
 class StoreViewSet(
     mixins.CreateModelMixin,
     mixins.RetrieveModelMixin,

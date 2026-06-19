@@ -68,6 +68,7 @@ def _compute_period_stats(store, start_date: datetime.date, end_date: datetime.d
     }
 
 
+@extend_schema(tags=["stats"])
 class StatsViewSet(viewsets.GenericViewSet):
     @extend_schema(
         summary="Current quarter stats compared to same period last quarter",
@@ -87,7 +88,6 @@ class StatsViewSet(viewsets.GenericViewSet):
             "- `average_basket`: Average order value (panier moyen)"
         ),
         responses={200: DashboardStatsSerializer},
-        tags=["Stats"],
     )
     @action(detail=False, methods=["get"], url_path="current-quarter")
     def current_quarter(self, request, store_pk=None):

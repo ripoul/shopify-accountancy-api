@@ -1,3 +1,4 @@
+from drf_spectacular.utils import extend_schema
 from rest_framework import mixins, viewsets
 
 from core.models import Supplier
@@ -6,6 +7,7 @@ from core.serializers import SupplierSerializer
 from .base import get_store_for_user
 
 
+@extend_schema(tags=["supplier"])
 class SupplierViewSet(
     mixins.ListModelMixin,
     mixins.CreateModelMixin,

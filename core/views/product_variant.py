@@ -1,3 +1,4 @@
+from drf_spectacular.utils import extend_schema
 from guardian.shortcuts import get_objects_for_user
 from rest_framework import mixins, viewsets
 from rest_framework.permissions import IsAuthenticated
@@ -7,6 +8,7 @@ from core.permissions import CanManageProductVariant
 from core.serializers import ProductVariantSerializer
 
 
+@extend_schema(tags=["product_variant"])
 class ProductVariantViewSet(mixins.UpdateModelMixin, viewsets.GenericViewSet):
     serializer_class = ProductVariantSerializer
     permission_classes = [IsAuthenticated, CanManageProductVariant]
