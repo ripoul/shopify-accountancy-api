@@ -10,7 +10,13 @@ from core.serializers import StoreConnectSerializer, StoreInstallSerializer, Sto
 from core.shopify import build_authorization_url, exchange_shopify_code
 
 
-class StoreViewSet(mixins.CreateModelMixin, mixins.ListModelMixin, viewsets.GenericViewSet):
+class StoreViewSet(
+    mixins.CreateModelMixin,
+    mixins.RetrieveModelMixin,
+    mixins.UpdateModelMixin,
+    mixins.ListModelMixin,
+    viewsets.GenericViewSet,
+):
     permission_classes = [IsAuthenticated]
     lookup_value_regex = r"\d+"
 

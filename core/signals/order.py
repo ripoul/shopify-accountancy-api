@@ -4,6 +4,7 @@ from django.db.models import Sum
 from django.db.models.signals import post_save
 from django.dispatch import receiver
 
+from core.business_logic.compute_royalty import recalculate_royalty_for_quarter
 from core.models import BankTransaction, CashTransaction, Order, OrderExpense, Tax
 
 TAX_RATE = Decimal("0.134")
@@ -55,6 +56,13 @@ def update_quarterly_tax(sender, instance, **kwargs):
         quarter=instance.quarter,
         defaults={"amount": (total * TAX_RATE).quantize(Decimal("0.01"))},
     )
+
+
+@receiver(post_save, sender=Order)
+def update_quarterly_royalty(sender, instance, **kwargs):
+    if not instance.quarter:
+        return
+    recalculate_royalty_for_quarter(instance.store, instance.quarter)
 
 
 @receiver(post_save, sender=OrderExpense)

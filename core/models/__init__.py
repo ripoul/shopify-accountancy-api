@@ -3,6 +3,7 @@ from .cash_transaction import CashTransaction
 from .order import Order, OrderDiscount, OrderExpense, OrderLineItem
 from .product import Collection, Product, ProductVariant
 from .purchase import Purchase
+from .royalty import Royalty
 from .store import Store
 from .supplier import Supplier
 from .tax import Tax
@@ -18,6 +19,7 @@ __all__ = [
     "Product",
     "ProductVariant",
     "Purchase",
+    "Royalty",
     "Store",
     "Supplier",
     "Tax",

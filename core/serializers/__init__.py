@@ -9,6 +9,7 @@ from .order import (
 from .product import CollectionSerializer, ProductSerializer
 from .product_variant import ProductVariantSerializer
 from .purchase import PurchaseSerializer
+from .royalty import RoyaltySerializer
 from .store import StoreConnectSerializer, StoreInstallSerializer, StoreSerializer
 from .supplier import SupplierSerializer
 from .tax import TaxSerializer
@@ -25,6 +26,7 @@ __all__ = [
     "ProductSerializer",
     "ProductVariantSerializer",
     "PurchaseSerializer",
+    "RoyaltySerializer",
     "StoreConnectSerializer",
     "StoreInstallSerializer",
     "StoreSerializer",

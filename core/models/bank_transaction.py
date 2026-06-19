@@ -3,6 +3,7 @@ from decimal import Decimal
 from django.db import models
 
 from .order import Order
+from .royalty import Royalty
 from .store import Store
 from .tax import Tax
 
@@ -14,6 +15,7 @@ class BankTransaction(models.Model):
         EMPTY_CASHBOX = "EMPTY_CASHBOX", "Empty Cashbox"
         FILL_CASHBOX = "FILL_CASHBOX", "Fill Cashbox"
         TAX = "TAX", "Tax"
+        ROYALTY = "ROYALTY", "Royalty"
         OTHER = "OTHER", "Other"
 
     store = models.ForeignKey(Store, on_delete=models.CASCADE, related_name="bank_transactions")
@@ -27,6 +29,13 @@ class BankTransaction(models.Model):
     )
     tax = models.OneToOneField(
         Tax,
+        on_delete=models.SET_NULL,
+        related_name="bank_transaction",
+        null=True,
+        blank=True,
+    )
+    royalty = models.OneToOneField(
+        Royalty,
         on_delete=models.SET_NULL,
         related_name="bank_transaction",
         null=True,
