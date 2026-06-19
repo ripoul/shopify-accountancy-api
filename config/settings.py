@@ -1,4 +1,5 @@
 import os
+from datetime import timedelta
 from pathlib import Path
 from urllib.parse import parse_qs, unquote, urlparse
 
@@ -24,6 +25,7 @@ INSTALLED_APPS = [
     "django_filters",
     "guardian",
     "drf_spectacular",
+    "rest_framework_simplejwt.token_blacklist",
     # local
     "core",
 ]
@@ -149,3 +151,11 @@ CSRF_TRUSTED_ORIGINS = config(
     cast=lambda v: [origin for origin in v.split(",") if origin],
 )
 ALLOWED_HOSTS = config("ALLOWED_HOSTS", default="localhost,127.0.0.1", cast=lambda v: v.split(","))
+
+
+SIMPLE_JWT = {
+    "ACCESS_TOKEN_LIFETIME": timedelta(minutes=config("ACCESS_TOKEN_LIFETIME", default=5, cast=int)),
+    "REFRESH_TOKEN_LIFETIME": timedelta(days=config("REFRESH_TOKEN_LIFETIME", default=7, cast=int)),
+    "ROTATE_REFRESH_TOKENS": True,
+    "BLACKLIST_AFTER_ROTATION": True,
+}
