@@ -1,0 +1,109 @@
+import datetime
+from decimal import Decimal
+
+from django.db.models import Avg, Count, Sum
+from django.utils import timezone
+from drf_spectacular.utils import extend_schema
+from rest_framework import viewsets
+from rest_framework.decorators import action
+from rest_framework.response import Response
+
+from core.models import Order, Purchase
+from core.serializers.stats import DashboardStatsSerializer
+
+from .base import get_store_for_user
+
+
+def _get_quarter_start(d: datetime.date) -> datetime.date:
+    first_month = ((d.month - 1) // 3) * 3 + 1
+    return d.replace(month=first_month, day=1)
+
+
+def _get_quarter_label(d: datetime.date) -> str:
+    quarter_num = (d.month - 1) // 3 + 1
+    return f"{d.year}/{quarter_num:02d}"
+
+
+def _get_previous_quarter_start(current_quarter_start: datetime.date) -> datetime.date:
+    one_day_before = current_quarter_start - datetime.timedelta(days=1)
+    return _get_quarter_start(one_day_before)
+
+
+def _compute_period_stats(store, start_date: datetime.date, end_date: datetime.date, period: str) -> dict:
+    agg = Order.objects.filter(
+        store=store,
+        processed_at__date__gte=start_date,
+        processed_at__date__lte=end_date,
+    ).aggregate(
+        revenue=Sum("total_price"),
+        profit_before_tax=Sum("net_margin"),
+        profit_after_tax=Sum("after_tax_result"),
+        order_count=Count("id"),
+        avg_basket=Avg("total_price"),
+    )
+
+    revenue = agg["revenue"] or Decimal("0")
+    profit_before_tax = agg["profit_before_tax"] or Decimal("0")
+    profit_after_tax = agg["profit_after_tax"] or Decimal("0")
+    order_count = agg["order_count"] or 0
+    avg_basket = agg["avg_basket"] or Decimal("0")
+
+    purchase_total = Purchase.objects.filter(
+        store=store,
+        order_date__gte=start_date,
+        order_date__lte=end_date,
+    ).aggregate(total=Sum("price"))["total"] or Decimal("0")
+
+    return {
+        "period": period,
+        "start_date": start_date,
+        "end_date": end_date,
+        "revenue": revenue,
+        "profit_before_tax": profit_before_tax,
+        "profit_after_tax": profit_after_tax,
+        "profit_after_tax_after_purchase": profit_after_tax - purchase_total,
+        "order_count": order_count,
+        "average_profit_per_order": profit_after_tax / order_count if order_count else Decimal("0"),
+        "average_basket": avg_basket,
+    }
+
+
+class StatsViewSet(viewsets.GenericViewSet):
+    @extend_schema(
+        summary="Current quarter stats compared to same period last quarter",
+        description=(
+            "Returns aggregated financial metrics for the current quarter (from quarter start to today) "
+            "and for the same elapsed period in the previous quarter.\n\n"
+            "The **previous quarter same period** is computed by counting how many days have elapsed "
+            "since the start of the current quarter, then applying that same offset to the previous quarter. "
+            "This ensures an apples-to-apples comparison.\n\n"
+            "**Metrics:**\n"
+            "- `revenue`: Total amount paid by customers (CA) — sum of `total_price`\n"
+            "- `profit_before_tax`: Revenue minus all operating expenses and COGS (`net_margin`)\n"
+            "- `profit_after_tax`: Profit after 13.4% tax rate applied to revenue (`after_tax_result`)\n"
+            "- `profit_after_tax_after_purchase`: Profit after tax minus supplier `Purchase` records in the period\n"
+            "- `order_count`: Number of orders\n"
+            "- `average_profit_per_order`: `profit_after_tax / order_count`\n"
+            "- `average_basket`: Average order value (panier moyen)"
+        ),
+        responses={200: DashboardStatsSerializer},
+        tags=["Stats"],
+    )
+    @action(detail=False, methods=["get"], url_path="current-quarter")
+    def current_quarter(self, request, store_pk=None):
+        store = get_store_for_user(request.user, store_pk)
+        today = timezone.localdate()
+
+        current_start = _get_quarter_start(today)
+        current_period = _get_quarter_label(today)
+        days_elapsed = (today - current_start).days
+
+        prev_start = _get_previous_quarter_start(current_start)
+        prev_end = prev_start + datetime.timedelta(days=days_elapsed)
+        prev_period = _get_quarter_label(prev_start)
+
+        data = {
+            "current_quarter": _compute_period_stats(store, current_start, today, current_period),
+            "previous_quarter": _compute_period_stats(store, prev_start, prev_end, prev_period),
+        }
+        return Response(DashboardStatsSerializer(data).data)

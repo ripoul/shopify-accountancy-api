@@ -5,6 +5,7 @@ from .product import CollectionViewSet, ProductViewSet
 from .product_variant import ProductVariantViewSet
 from .purchase import PurchaseViewSet
 from .royalty import RoyaltyViewSet
+from .stats import StatsViewSet
 from .store import StoreViewSet
 from .supplier import SupplierViewSet
 from .tax import TaxViewSet
@@ -21,6 +22,7 @@ __all__ = [
     "ProductViewSet",
     "PurchaseViewSet",
     "RoyaltyViewSet",
+    "StatsViewSet",
     "StoreViewSet",
     "SupplierViewSet",
     "TaxViewSet",

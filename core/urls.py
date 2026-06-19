@@ -12,6 +12,7 @@ from .views import (
     ProductViewSet,
     PurchaseViewSet,
     RoyaltyViewSet,
+    StatsViewSet,
     StoreViewSet,
     SupplierViewSet,
     TaxViewSet,
@@ -41,6 +42,7 @@ router.register(r"stores/(?P<store_pk>\d+)/bank-transactions", BankTransactionVi
 router.register(r"stores/(?P<store_pk>\d+)/cash-transactions", CashTransactionViewSet, basename="cash-transaction")
 router.register(r"stores/(?P<store_pk>\d+)/taxes", TaxViewSet, basename="tax")
 router.register(r"stores/(?P<store_pk>\d+)/royalties", RoyaltyViewSet, basename="royalty")
+router.register(r"stores/(?P<store_pk>\d+)/stats", StatsViewSet, basename="stat")
 
 urlpatterns = [
     path("users/", UserCreateView.as_view(), name="user-create"),
