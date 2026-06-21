@@ -414,3 +414,230 @@ class CurrentQuarterStatsTest(BaseStatsViewSetTestCase):
         response = self.client.get(self.url)
         self.assertEqual(response.data["current_quarter"]["order_count"], 0)
         self.assertEqual(response.data["current_quarter"]["revenue"], "0.00")
+
+
+# Fixed reference date: 2025-05-15 (Q2 2025 in progress)
+# Q1 2025: 2025-01-01 → 2025-03-31
+# Q2 2025: 2025-04-01 → 2025-05-15 (today, is_current=True)
+class QuartersHistoryTest(BaseStatsViewSetTestCase):
+    def setUp(self):
+        super().setUp()
+        self.url = reverse("stat-quarters-history", kwargs={"store_pk": self.store.pk})
+
+    @patch("core.views.stats.timezone")
+    def test_no_orders_returns_empty_list(self, mock_tz):
+        mock_tz.localdate.return_value = FIXED_TODAY
+        response = self.client.get(self.url)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data, [])
+
+    def test_unauthenticated_returns_401(self):
+        self.client.credentials()
+        response = self.client.get(self.url)
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+
+    @patch("core.views.stats.timezone")
+    def test_no_permission_returns_404(self, mock_tz):
+        mock_tz.localdate.return_value = FIXED_TODAY
+        other_store = Store.objects.create(
+            shop_domain="other.myshopify.com",
+            name="Other",
+            access_token="shpat_other",
+        )
+        url = reverse("stat-quarters-history", kwargs={"store_pk": other_store.pk})
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+
+    @patch("core.views.stats.timezone")
+    def test_single_quarter_returns_one_item(self, mock_tz):
+        mock_tz.localdate.return_value = FIXED_TODAY
+        self._create_order(
+            processed_at=make_aware(datetime.datetime(2025, 4, 10)),
+            total_price="100.00",
+            external_id="gid://shopify/Order/1",
+        )
+        response = self.client.get(self.url)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(response.data), 1)
+
+    @patch("core.views.stats.timezone")
+    def test_response_fields_present(self, mock_tz):
+        mock_tz.localdate.return_value = FIXED_TODAY
+        self._create_order(
+            processed_at=make_aware(datetime.datetime(2025, 4, 10)),
+            external_id="gid://shopify/Order/1",
+        )
+        response = self.client.get(self.url)
+        expected_fields = {
+            "period",
+            "start_date",
+            "end_date",
+            "is_current",
+            "revenue",
+            "profit_before_tax",
+            "profit_after_tax",
+            "profit_after_tax_after_purchase",
+            "cash_variation",
+            "order_count",
+            "average_profit_per_order",
+            "average_basket",
+        }
+        self.assertEqual(set(response.data[0].keys()), expected_fields)
+
+    @patch("core.views.stats.timezone")
+    def test_current_quarter_marked_is_current(self, mock_tz):
+        mock_tz.localdate.return_value = FIXED_TODAY
+        self._create_order(
+            processed_at=make_aware(datetime.datetime(2025, 4, 10)),
+            external_id="gid://shopify/Order/1",
+        )
+        response = self.client.get(self.url)
+        last = response.data[-1]
+        self.assertTrue(last["is_current"])
+        self.assertEqual(last["end_date"], str(FIXED_TODAY))
+
+    @patch("core.views.stats.timezone")
+    def test_multiple_quarters_ordered_chronologically(self, mock_tz):
+        mock_tz.localdate.return_value = FIXED_TODAY
+        # Orders in Q4 2024 and Q2 2025
+        self._create_order(
+            processed_at=make_aware(datetime.datetime(2024, 11, 1)),
+            total_price="50.00",
+            external_id="gid://shopify/Order/q4",
+        )
+        self._create_order(
+            processed_at=make_aware(datetime.datetime(2025, 4, 10)),
+            total_price="100.00",
+            external_id="gid://shopify/Order/q2",
+        )
+        response = self.client.get(self.url)
+        periods = [item["period"] for item in response.data]
+        # Q4 2024, Q1 2025 (no data), Q2 2025
+        self.assertEqual(periods[0], "2024/04")
+        self.assertEqual(periods[-1], "2025/02")
+        # Quarters are in ascending order
+        self.assertEqual(periods, sorted(periods))
+
+    @patch("core.views.stats.timezone")
+    def test_empty_quarters_between_data_are_included(self, mock_tz):
+        mock_tz.localdate.return_value = FIXED_TODAY
+        # Q4 2024 has data, Q1 2025 has none, Q2 2025 is current
+        self._create_order(
+            processed_at=make_aware(datetime.datetime(2024, 11, 1)),
+            total_price="50.00",
+            external_id="gid://shopify/Order/q4",
+        )
+        response = self.client.get(self.url)
+        self.assertEqual(len(response.data), 3)
+        # Q1 2025 is in between and should have 0 revenue
+        q1_item = next(item for item in response.data if item["period"] == "2025/01")
+        self.assertEqual(q1_item["revenue"], "0.00")
+        self.assertFalse(q1_item["is_current"])
+
+    @patch("core.views.stats.timezone")
+    def test_complete_quarter_uses_calendar_end_date(self, mock_tz):
+        mock_tz.localdate.return_value = FIXED_TODAY
+        self._create_order(
+            processed_at=make_aware(datetime.datetime(2025, 1, 15)),
+            external_id="gid://shopify/Order/1",
+        )
+        response = self.client.get(self.url)
+        q1_item = next(item for item in response.data if item["period"] == "2025/01")
+        self.assertEqual(q1_item["start_date"], "2025-01-01")
+        self.assertEqual(q1_item["end_date"], "2025-03-31")
+        self.assertFalse(q1_item["is_current"])
+
+    @patch("core.views.stats.timezone")
+    def test_capped_at_20_most_recent_quarters(self, mock_tz):
+        # today = 2026-06-15 → Q2 2026
+        # 25 quarters back → Q1 2020
+        # We should only get 20 quarters (Q3 2021 → Q2 2026)
+        mock_tz.localdate.return_value = date(2026, 6, 15)
+        # Create one order in Q1 2020 (25 quarters ago)
+        Order.objects.create(
+            store=self.store,
+            external_id="gid://shopify/Order/old",
+            name="#old",
+            processed_at=make_aware(datetime.datetime(2020, 1, 10)),
+            total_price=Decimal("10.00"),
+        )
+        response = self.client.get(self.url)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(response.data), 20)
+        # Oldest returned quarter must be Q3 2021 (20 quarters before Q2 2026)
+        self.assertEqual(response.data[0]["period"], "2021/03")
+        # Most recent must be current quarter Q2 2026
+        self.assertEqual(response.data[-1]["period"], "2026/02")
+        self.assertTrue(response.data[-1]["is_current"])
+
+    @patch("core.views.stats.timezone")
+    def test_revenue_aggregated_correctly_per_quarter(self, mock_tz):
+        mock_tz.localdate.return_value = FIXED_TODAY
+        self._create_order(
+            processed_at=make_aware(datetime.datetime(2025, 1, 10)),
+            total_price="200.00",
+            external_id="gid://shopify/Order/q1a",
+        )
+        self._create_order(
+            processed_at=make_aware(datetime.datetime(2025, 2, 20)),
+            total_price="100.00",
+            external_id="gid://shopify/Order/q1b",
+        )
+        self._create_order(
+            processed_at=make_aware(datetime.datetime(2025, 4, 5)),
+            total_price="50.00",
+            external_id="gid://shopify/Order/q2",
+        )
+        response = self.client.get(self.url)
+        q1_item = next(item for item in response.data if item["period"] == "2025/01")
+        q2_item = next(item for item in response.data if item["period"] == "2025/02")
+        self.assertEqual(q1_item["revenue"], "300.00")
+        self.assertEqual(q2_item["revenue"], "50.00")
+
+    @patch("core.views.stats.timezone")
+    def test_store_isolation(self, mock_tz):
+        mock_tz.localdate.return_value = FIXED_TODAY
+        other_store = Store.objects.create(
+            shop_domain="other.myshopify.com",
+            name="Other",
+            access_token="shpat_other",
+        )
+        Order.objects.create(
+            store=other_store,
+            external_id="gid://shopify/Order/other",
+            name="#9999",
+            processed_at=make_aware(datetime.datetime(2025, 4, 10)),
+            total_price=Decimal("999.00"),
+        )
+        self._create_order(
+            processed_at=make_aware(datetime.datetime(2025, 4, 10)),
+            total_price="10.00",
+            external_id="gid://shopify/Order/mine",
+        )
+        response = self.client.get(self.url)
+        q2_item = next(item for item in response.data if item["period"] == "2025/02")
+        self.assertEqual(q2_item["revenue"], "10.00")
+
+    @patch("core.views.stats.timezone")
+    def test_q4_calendar_end_date(self, mock_tz):
+        # Q4 ends on Dec 31
+        mock_tz.localdate.return_value = date(2025, 2, 1)
+        self._create_order(
+            processed_at=make_aware(datetime.datetime(2024, 10, 10)),
+            external_id="gid://shopify/Order/q4",
+        )
+        response = self.client.get(self.url)
+        q4_item = next(item for item in response.data if item["period"] == "2024/04")
+        self.assertEqual(q4_item["end_date"], "2024-12-31")
+
+    @patch("core.views.stats.timezone")
+    def test_q2_calendar_end_date(self, mock_tz):
+        # Q2 ends on Jun 30
+        mock_tz.localdate.return_value = date(2025, 8, 1)
+        self._create_order(
+            processed_at=make_aware(datetime.datetime(2025, 4, 10)),
+            external_id="gid://shopify/Order/q2",
+        )
+        response = self.client.get(self.url)
+        q2_item = next(item for item in response.data if item["period"] == "2025/02")
+        self.assertEqual(q2_item["end_date"], "2025-06-30")

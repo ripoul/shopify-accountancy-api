@@ -43,6 +43,12 @@ class QuarterStatsSerializer(serializers.Serializer):
     )
 
 
+class QuarterHistoryItemSerializer(QuarterStatsSerializer):
+    is_current = serializers.BooleanField(
+        help_text="True if this is the current in-progress quarter (end_date is today, not the calendar quarter end)"
+    )
+
+
 class DashboardStatsSerializer(serializers.Serializer):
     current_quarter = QuarterStatsSerializer(help_text="Stats for the current quarter up to today")
     previous_quarter = QuarterStatsSerializer(help_text="Stats for the same elapsed period in the previous quarter")
