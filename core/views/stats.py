@@ -2,14 +2,18 @@ import calendar
 import datetime
 from decimal import Decimal
 
-from django.db.models import Avg, Count, Q, Sum
+from django.db.models import Avg, Case, Count, DecimalField, ExpressionWrapper, F, IntegerField, Q, Sum, Value, When
+from django.db.models.functions import Cast, Coalesce
 from django.utils import timezone
-from drf_spectacular.utils import extend_schema
+from drf_spectacular.types import OpenApiTypes
+from drf_spectacular.utils import OpenApiParameter, extend_schema
 from rest_framework import viewsets
 from rest_framework.decorators import action
 from rest_framework.response import Response
 
-from core.models import Order, Purchase
+from core.filters.product_stats import ProductStatsFilter, VariantStatsFilter
+from core.models import Order, Product, ProductVariant, Purchase
+from core.serializers.product_stats import ProductStatsSerializer, ProductVariantStatsSerializer
 from core.serializers.stats import DashboardStatsSerializer, QuarterHistoryItemSerializer
 
 from .base import get_store_for_user
@@ -187,3 +191,99 @@ class StatsViewSet(viewsets.GenericViewSet):
             result.append(stats)
 
         return Response(QuarterHistoryItemSerializer(result, many=True).data)
+
+    _DECIMAL_FIELD = DecimalField(max_digits=20, decimal_places=4)
+
+    def _annotate_stats(self, queryset):
+        """Annotate queryset with sales stats. Two passes: net_gain_per_unit depends on total_sold and net_gain."""
+        return queryset.annotate(
+            total_sold=Coalesce(
+                Sum("order_line_items__quantity"),
+                0,
+                output_field=IntegerField(),
+            ),
+            net_gain=Coalesce(
+                Sum(
+                    ExpressionWrapper(
+                        (F("order_line_items__unit_price") - F("order_line_items__distributor_price"))
+                        * F("order_line_items__quantity"),
+                        output_field=self._DECIMAL_FIELD,
+                    )
+                ),
+                Decimal("0"),
+                output_field=self._DECIMAL_FIELD,
+            ),
+            orders_containing=Count("order_line_items__order", distinct=True),
+        ).annotate(
+            net_gain_per_unit=Case(
+                When(total_sold=0, then=Value(Decimal("0"), output_field=self._DECIMAL_FIELD)),
+                default=ExpressionWrapper(
+                    F("net_gain") / Cast(F("total_sold"), output_field=self._DECIMAL_FIELD),
+                    output_field=self._DECIMAL_FIELD,
+                ),
+                output_field=self._DECIMAL_FIELD,
+            ),
+        )
+
+    @extend_schema(
+        summary="Sales statistics by product",
+        description=(
+            "Returns all products for the store with all-time sales statistics. "
+            "Stats are aggregated from all `OrderLineItem` rows linked to any variant of each product. "
+            "Results are ordered by product name by default."
+        ),
+        parameters=[
+            OpenApiParameter(
+                "name", OpenApiTypes.STR, description="Filter by product name (case-insensitive contains)."
+            ),
+            OpenApiParameter("collection", OpenApiTypes.INT, description="Filter by collection id."),
+        ],
+        responses={200: ProductStatsSerializer(many=True)},
+    )
+    @action(detail=False, methods=["get"], url_path="product-stats")
+    def product_stats(self, request, store_pk=None):
+        store = get_store_for_user(request.user, store_pk)
+        total_orders = Order.objects.filter(store=store).count()
+
+        queryset = self._annotate_stats(Product.objects.filter(store=store)).order_by("title")
+
+        filterset = ProductStatsFilter(request.GET, queryset=queryset, request=request)
+        serializer = ProductStatsSerializer(
+            filterset.qs,
+            many=True,
+            context={"total_orders": total_orders, "request": request},
+        )
+        return Response(serializer.data)
+
+    @extend_schema(
+        summary="Sales statistics by variant",
+        description=(
+            "Returns all product variants for the store with all-time sales statistics. "
+            "Stats are computed from `OrderLineItem` rows linked to each variant. "
+            "Results are ordered by product name then variant title by default."
+        ),
+        parameters=[
+            OpenApiParameter(
+                "name", OpenApiTypes.STR, description="Filter by variant title (case-insensitive contains)."
+            ),
+            OpenApiParameter("product", OpenApiTypes.INT, description="Filter by product id."),
+            OpenApiParameter("collection", OpenApiTypes.INT, description="Filter by collection id."),
+        ],
+        responses={200: ProductVariantStatsSerializer(many=True)},
+    )
+    @action(detail=False, methods=["get"], url_path="variant-stats")
+    def variant_stats(self, request, store_pk=None):
+        store = get_store_for_user(request.user, store_pk)
+        total_orders = Order.objects.filter(store=store).count()
+
+        queryset = self._annotate_stats(
+            ProductVariant.objects.filter(product__store=store).select_related("product")
+        ).order_by("product__title", "title")
+
+        filterset = VariantStatsFilter(request.GET, queryset=queryset, request=request)
+        serializer = ProductVariantStatsSerializer(
+            filterset.qs,
+            many=True,
+            context={"total_orders": total_orders, "request": request},
+        )
+        return Response(serializer.data)
