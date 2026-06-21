@@ -150,7 +150,7 @@ CSRF_TRUSTED_ORIGINS = config(
     default="",
     cast=lambda v: [origin for origin in v.split(",") if origin],
 )
-ALLOWED_HOSTS = config("ALLOWED_HOSTS", default="localhost,127.0.0.1", cast=lambda v: v.split(","))
+ALLOWED_HOSTS = config("ALLOWED_HOSTS", default="localhost,127.0.0.1,0.0.0.0", cast=lambda v: v.split(","))
 
 
 SIMPLE_JWT = {

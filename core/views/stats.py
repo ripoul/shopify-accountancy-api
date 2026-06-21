@@ -1,7 +1,7 @@
 import datetime
 from decimal import Decimal
 
-from django.db.models import Avg, Count, Sum
+from django.db.models import Avg, Count, Q, Sum
 from django.utils import timezone
 from drf_spectacular.utils import extend_schema
 from rest_framework import viewsets
@@ -48,11 +48,16 @@ def _compute_period_stats(store, start_date: datetime.date, end_date: datetime.d
     order_count = agg["order_count"] or 0
     avg_basket = agg["avg_basket"] or Decimal("0")
 
-    purchase_total = Purchase.objects.filter(
+    purchase_aggs = Purchase.objects.filter(
         store=store,
         order_date__gte=start_date,
         order_date__lte=end_date,
-    ).aggregate(total=Sum("price"))["total"] or Decimal("0")
+    ).aggregate(
+        total=Sum("price"),
+        non_raw_total=Sum("price", filter=Q(is_raw_material=False)),
+    )
+    all_purchase_total = purchase_aggs["total"] or Decimal("0")
+    non_raw_purchase_total = purchase_aggs["non_raw_total"] or Decimal("0")
 
     return {
         "period": period,
@@ -61,7 +66,8 @@ def _compute_period_stats(store, start_date: datetime.date, end_date: datetime.d
         "revenue": revenue,
         "profit_before_tax": profit_before_tax,
         "profit_after_tax": profit_after_tax,
-        "profit_after_tax_after_purchase": profit_after_tax - purchase_total,
+        "profit_after_tax_after_purchase": profit_after_tax - non_raw_purchase_total,
+        "cash_variation": revenue - all_purchase_total,
         "order_count": order_count,
         "average_profit_per_order": profit_after_tax / order_count if order_count else Decimal("0"),
         "average_basket": avg_basket,
@@ -82,7 +88,8 @@ class StatsViewSet(viewsets.GenericViewSet):
             "- `revenue`: Total amount paid by customers (CA) — sum of `total_price`\n"
             "- `profit_before_tax`: Revenue minus all operating expenses and COGS (`net_margin`)\n"
             "- `profit_after_tax`: Profit after 13.4% tax rate applied to revenue (`after_tax_result`)\n"
-            "- `profit_after_tax_after_purchase`: Profit after tax minus supplier `Purchase` records in the period\n"
+            "- `profit_after_tax_after_purchase`: Profit after tax minus non-raw-material `Purchase` records\n"
+            "- `cash_variation`: Revenue minus all `Purchase` records (raw material included) — raw cash view\n"
             "- `order_count`: Number of orders\n"
             "- `average_profit_per_order`: `profit_after_tax / order_count`\n"
             "- `average_basket`: Average order value (panier moyen)"

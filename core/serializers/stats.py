@@ -23,7 +23,12 @@ class QuarterStatsSerializer(serializers.Serializer):
     profit_after_tax_after_purchase = serializers.DecimalField(
         max_digits=12,
         decimal_places=2,
-        help_text="Profit after tax minus supplier purchases (Purchase records) in the period",
+        help_text="Profit after tax minus non-raw-material Purchase records in the period",
+    )
+    cash_variation = serializers.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        help_text="Revenue (CA) minus all Purchase records including raw materials — raw cash view",
     )
     order_count = serializers.IntegerField(help_text="Number of orders in the period")
     average_profit_per_order = serializers.DecimalField(

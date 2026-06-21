@@ -61,12 +61,13 @@ class BaseStatsViewSetTestCase(TestCase):
             after_tax_result=Decimal(after_tax_result),
         )
 
-    def _create_purchase(self, order_date, price="50.00"):
+    def _create_purchase(self, order_date, price="50.00", is_raw_material=False):
         return Purchase.objects.create(
             store=self.store,
             supplier=self.supplier,
             order_date=order_date,
             price=Decimal(price),
+            is_raw_material=is_raw_material,
         )
 
 
@@ -117,6 +118,7 @@ class CurrentQuarterStatsTest(BaseStatsViewSetTestCase):
             "profit_before_tax",
             "profit_after_tax",
             "profit_after_tax_after_purchase",
+            "cash_variation",
             "order_count",
             "average_profit_per_order",
             "average_basket",
@@ -133,6 +135,7 @@ class CurrentQuarterStatsTest(BaseStatsViewSetTestCase):
         self.assertEqual(current["profit_before_tax"], "0.00")
         self.assertEqual(current["profit_after_tax"], "0.00")
         self.assertEqual(current["profit_after_tax_after_purchase"], "0.00")
+        self.assertEqual(current["cash_variation"], "0.00")
         self.assertEqual(current["order_count"], 0)
         self.assertEqual(current["average_profit_per_order"], "0.00")
         self.assertEqual(current["average_basket"], "0.00")
@@ -333,6 +336,64 @@ class CurrentQuarterStatsTest(BaseStatsViewSetTestCase):
         self.assertEqual(prev["period"], "2024/04")
         self.assertEqual(prev["start_date"], "2024-10-01")
         self.assertEqual(prev["end_date"], "2024-11-15")
+
+    @patch("core.views.stats.timezone")
+    def test_cash_variation_is_revenue_minus_all_purchases(self, mock_tz):
+        mock_tz.localdate.return_value = FIXED_TODAY
+        self._create_order(
+            processed_at=make_aware(datetime.datetime(2025, 4, 20)),
+            total_price="100.00",
+            after_tax_result="70.00",
+            external_id="gid://shopify/Order/1",
+        )
+        self._create_purchase(order_date=date(2025, 4, 25), price="20.00", is_raw_material=False)
+        self._create_purchase(order_date=date(2025, 4, 26), price="15.00", is_raw_material=True)
+        response = self.client.get(self.url)
+        current = response.data["current_quarter"]
+        # cash_variation = CA - all purchases = 100 - 20 - 15 = 65
+        self.assertEqual(current["cash_variation"], "65.00")
+        # profit_after_tax_after_purchase excludes raw material = 70 - 20 = 50
+        self.assertEqual(current["profit_after_tax_after_purchase"], "50.00")
+
+    @patch("core.views.stats.timezone")
+    def test_cash_variation_no_purchases(self, mock_tz):
+        mock_tz.localdate.return_value = FIXED_TODAY
+        self._create_order(
+            processed_at=make_aware(datetime.datetime(2025, 4, 20)),
+            total_price="100.00",
+            after_tax_result="70.00",
+            external_id="gid://shopify/Order/1",
+        )
+        response = self.client.get(self.url)
+        self.assertEqual(response.data["current_quarter"]["cash_variation"], "100.00")
+
+    @patch("core.views.stats.timezone")
+    def test_raw_material_purchases_not_deducted(self, mock_tz):
+        mock_tz.localdate.return_value = FIXED_TODAY
+        self._create_order(
+            processed_at=make_aware(datetime.datetime(2025, 4, 20)),
+            after_tax_result="90.00",
+            external_id="gid://shopify/Order/1",
+        )
+        self._create_purchase(order_date=date(2025, 4, 25), price="25.00", is_raw_material=True)
+        response = self.client.get(self.url)
+        current = response.data["current_quarter"]
+        self.assertEqual(current["profit_after_tax"], "90.00")
+        self.assertEqual(current["profit_after_tax_after_purchase"], "90.00")
+
+    @patch("core.views.stats.timezone")
+    def test_only_non_raw_material_purchases_deducted(self, mock_tz):
+        mock_tz.localdate.return_value = FIXED_TODAY
+        self._create_order(
+            processed_at=make_aware(datetime.datetime(2025, 4, 20)),
+            after_tax_result="90.00",
+            external_id="gid://shopify/Order/1",
+        )
+        self._create_purchase(order_date=date(2025, 4, 25), price="20.00", is_raw_material=False)
+        self._create_purchase(order_date=date(2025, 4, 26), price="15.00", is_raw_material=True)
+        response = self.client.get(self.url)
+        current = response.data["current_quarter"]
+        self.assertEqual(current["profit_after_tax_after_purchase"], "70.00")
 
     @patch("core.views.stats.timezone")
     def test_store_isolation(self, mock_tz):
