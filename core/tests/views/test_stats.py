@@ -88,7 +88,7 @@ class CurrentQuarterStatsTest(BaseStatsViewSetTestCase):
         self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
 
     @patch("core.views.stats.timezone")
-    def test_store_without_permission_returns_404(self, mock_tz):
+    def test_store_without_permission_returns_403(self, mock_tz):
         mock_tz.localdate.return_value = FIXED_TODAY
         other_store = Store.objects.create(
             shop_domain="other.myshopify.com",
@@ -97,7 +97,7 @@ class CurrentQuarterStatsTest(BaseStatsViewSetTestCase):
         )
         url = reverse("stat-current-quarter", kwargs={"store_pk": other_store.pk})
         response = self.client.get(url)
-        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
 
     @patch("core.views.stats.timezone")
     def test_response_contains_both_periods(self, mock_tz):
@@ -437,7 +437,7 @@ class QuartersHistoryTest(BaseStatsViewSetTestCase):
         self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
 
     @patch("core.views.stats.timezone")
-    def test_no_permission_returns_404(self, mock_tz):
+    def test_no_permission_returns_403(self, mock_tz):
         mock_tz.localdate.return_value = FIXED_TODAY
         other_store = Store.objects.create(
             shop_domain="other.myshopify.com",
@@ -446,7 +446,7 @@ class QuartersHistoryTest(BaseStatsViewSetTestCase):
         )
         url = reverse("stat-quarters-history", kwargs={"store_pk": other_store.pk})
         response = self.client.get(url)
-        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
 
     @patch("core.views.stats.timezone")
     def test_single_quarter_returns_one_item(self, mock_tz):

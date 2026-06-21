@@ -9,10 +9,12 @@ from drf_spectacular.types import OpenApiTypes
 from drf_spectacular.utils import OpenApiParameter, extend_schema
 from rest_framework import viewsets
 from rest_framework.decorators import action
+from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
 from core.filters.product_stats import ProductStatsFilter, VariantStatsFilter
 from core.models import Order, Product, ProductVariant, Purchase
+from core.permissions import CanManageStore
 from core.serializers.product_stats import ProductStatsSerializer, ProductVariantStatsSerializer
 from core.serializers.stats import DashboardStatsSerializer, QuarterHistoryItemSerializer
 
@@ -99,6 +101,7 @@ def _compute_period_stats(store, start_date: datetime.date, end_date: datetime.d
 
 @extend_schema(tags=["stats"])
 class StatsViewSet(viewsets.GenericViewSet):
+    permission_classes = [IsAuthenticated, CanManageStore]
     pagination_class = None
 
     @extend_schema(

@@ -4,14 +4,14 @@ from rest_framework import mixins, viewsets
 from rest_framework.permissions import IsAuthenticated
 
 from core.models import ProductVariant, Store
-from core.permissions import CanManageProductVariant
+from core.permissions import CanManageProductVariant, CanManageStore
 from core.serializers import ProductVariantSerializer
 
 
 @extend_schema(tags=["product_variant"])
 class ProductVariantViewSet(mixins.UpdateModelMixin, viewsets.GenericViewSet):
     serializer_class = ProductVariantSerializer
-    permission_classes = [IsAuthenticated, CanManageProductVariant]
+    permission_classes = [IsAuthenticated, CanManageStore, CanManageProductVariant]
     lookup_url_kwarg = "variant_pk"
     lookup_value_regex = r"\d+"
 

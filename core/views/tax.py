@@ -1,9 +1,11 @@
 from django_filters.rest_framework import DjangoFilterBackend
 from drf_spectacular.utils import extend_schema
 from rest_framework import mixins, viewsets
+from rest_framework.permissions import IsAuthenticated
 
 from core.filters import TaxFilter
 from core.models import Tax
+from core.permissions import CanManageStore
 from core.serializers import TaxSerializer
 
 from .base import get_store_for_user
@@ -16,6 +18,7 @@ class TaxViewSet(
     mixins.UpdateModelMixin,
     viewsets.GenericViewSet,
 ):
+    permission_classes = [IsAuthenticated, CanManageStore]
     serializer_class = TaxSerializer
     filter_backends = [DjangoFilterBackend]
     filterset_class = TaxFilter

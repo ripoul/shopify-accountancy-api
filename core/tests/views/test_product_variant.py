@@ -96,4 +96,4 @@ class ProductVariantViewSetTest(TestCase):
 
         response = self.client.patch(url, {"distributor_price": "12.34"})
 
-        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)

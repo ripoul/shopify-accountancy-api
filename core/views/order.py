@@ -3,11 +3,13 @@ from django_filters.rest_framework import DjangoFilterBackend
 from drf_spectacular.utils import extend_schema
 from rest_framework import mixins, status, viewsets
 from rest_framework.decorators import action
+from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
 from core.business_logic.import_orders import import_orders as upsert_orders
 from core.filters import OrderFilter
 from core.models import Order, OrderExpense, OrderLineItem
+from core.permissions import CanManageStore
 from core.serializers import OrderExpenseSerializer, OrderLineItemSerializer, OrderSerializer
 
 from .base import get_store_for_user
@@ -15,6 +17,7 @@ from .base import get_store_for_user
 
 @extend_schema(tags=["order"])
 class OrderViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, viewsets.GenericViewSet):
+    permission_classes = [IsAuthenticated, CanManageStore]
     serializer_class = OrderSerializer
     filter_backends = [DjangoFilterBackend]
     filterset_class = OrderFilter
@@ -55,6 +58,7 @@ class OrderExpenseViewSet(
     mixins.DestroyModelMixin,
     viewsets.GenericViewSet,
 ):
+    permission_classes = [IsAuthenticated, CanManageStore]
     serializer_class = OrderExpenseSerializer
     lookup_url_kwarg = "expense_pk"
     lookup_value_regex = r"\d+"
@@ -90,6 +94,7 @@ class OrderLineItemViewSet(
     mixins.UpdateModelMixin,
     viewsets.GenericViewSet,
 ):
+    permission_classes = [IsAuthenticated, CanManageStore]
     serializer_class = OrderLineItemSerializer
     lookup_url_kwarg = "line_item_pk"
     lookup_value_regex = r"\d+"

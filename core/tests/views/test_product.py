@@ -71,11 +71,11 @@ class ProductViewSetTest(BaseProductViewSetTestCase):
         response = self.client.get(self.url)
         self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
 
-    def test_store_without_permission_returns_404(self):
+    def test_store_without_permission_returns_403(self):
         other_store = Store.objects.create(shop_domain="other.myshopify.com", name="Other", access_token="shpat_other")
         url = reverse("product-list", kwargs={"store_pk": other_store.pk})
         response = self.client.get(url)
-        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
 
     @patch("core.views.product.upsert_products")
     def test_import_products_returns_204(self, _mock):
@@ -96,7 +96,7 @@ class ProductViewSetTest(BaseProductViewSetTestCase):
         other_store = Store.objects.create(shop_domain="other.myshopify.com", name="Other", access_token="shpat_other")
         url = reverse("product-import-products", kwargs={"store_pk": other_store.pk})
         response = self.client.post(url)
-        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
 
     def test_returns_products_for_store(self):
         self._create_product()
@@ -220,11 +220,11 @@ class CollectionViewSetTest(BaseProductViewSetTestCase):
         response = self.client.get(self.url)
         self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
 
-    def test_store_without_permission_returns_404(self):
+    def test_store_without_permission_returns_403(self):
         other_store = Store.objects.create(shop_domain="other.myshopify.com", name="Other", access_token="shpat_other")
         url = reverse("collection-list", kwargs={"store_pk": other_store.pk})
         response = self.client.get(url)
-        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
 
     def test_returns_collections_for_store(self):
         self._create_collection(title="Nouveautés")

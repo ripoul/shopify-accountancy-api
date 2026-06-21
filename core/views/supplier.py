@@ -1,7 +1,9 @@
 from drf_spectacular.utils import extend_schema
 from rest_framework import mixins, viewsets
+from rest_framework.permissions import IsAuthenticated
 
 from core.models import Supplier
+from core.permissions import CanManageStore
 from core.serializers import SupplierSerializer
 
 from .base import get_store_for_user
@@ -15,6 +17,7 @@ class SupplierViewSet(
     mixins.UpdateModelMixin,
     viewsets.GenericViewSet,
 ):
+    permission_classes = [IsAuthenticated, CanManageStore]
     serializer_class = SupplierSerializer
     lookup_url_kwarg = "supplier_pk"
     lookup_value_regex = r"\d+"

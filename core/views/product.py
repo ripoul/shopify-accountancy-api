@@ -5,11 +5,13 @@ from drf_spectacular.utils import extend_schema
 from guardian.shortcuts import get_objects_for_user
 from rest_framework import mixins, status, viewsets
 from rest_framework.decorators import action
+from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
 from core.business_logic.import_products import import_products as upsert_products
 from core.filters import ProductFilter
 from core.models import Collection, Product, Store
+from core.permissions import CanManageStore
 from core.serializers import CollectionSerializer, ProductSerializer
 
 
@@ -22,6 +24,7 @@ def _get_store_for_user(user, store_pk):
 
 @extend_schema(tags=["product"])
 class ProductViewSet(mixins.ListModelMixin, viewsets.GenericViewSet):
+    permission_classes = [IsAuthenticated, CanManageStore]
     serializer_class = ProductSerializer
     filter_backends = [DjangoFilterBackend]
     filterset_class = ProductFilter
@@ -49,6 +52,7 @@ class ProductViewSet(mixins.ListModelMixin, viewsets.GenericViewSet):
 
 @extend_schema(tags=["product"])
 class CollectionViewSet(mixins.ListModelMixin, viewsets.GenericViewSet):
+    permission_classes = [IsAuthenticated, CanManageStore]
     serializer_class = CollectionSerializer
 
     def get_queryset(self):

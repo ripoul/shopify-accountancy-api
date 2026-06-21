@@ -64,11 +64,11 @@ class BankTransactionListTest(BaseBankTransactionViewSetTestCase):
         response = self.client.get(self.list_url)
         self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
 
-    def test_store_without_permission_returns_404(self):
+    def test_store_without_permission_returns_403(self):
         other_store = Store.objects.create(shop_domain="other.myshopify.com", name="Other", access_token="shpat_other")
         url = reverse("bank-transaction-list", kwargs={"store_pk": other_store.pk})
         response = self.client.get(url)
-        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
 
     def test_returns_transactions_for_store(self):
         self._create_transaction(amount="50.00")
@@ -252,4 +252,4 @@ class BankTransactionDeleteTest(BaseBankTransactionViewSetTestCase):
             kwargs={"store_pk": other_store.pk, "bank_transaction_pk": txn.pk},
         )
         response = self.client.delete(url)
-        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)

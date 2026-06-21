@@ -1,9 +1,11 @@
 from django_filters.rest_framework import DjangoFilterBackend
 from drf_spectacular.utils import extend_schema
 from rest_framework import mixins, viewsets
+from rest_framework.permissions import IsAuthenticated
 
 from core.filters import PurchaseFilter
 from core.models import Purchase
+from core.permissions import CanManageStore
 from core.serializers import PurchaseSerializer
 
 from .base import get_store_for_user
@@ -17,6 +19,7 @@ class PurchaseViewSet(
     mixins.UpdateModelMixin,
     viewsets.GenericViewSet,
 ):
+    permission_classes = [IsAuthenticated, CanManageStore]
     serializer_class = PurchaseSerializer
     filter_backends = [DjangoFilterBackend]
     filterset_class = PurchaseFilter

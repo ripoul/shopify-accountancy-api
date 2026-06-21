@@ -68,11 +68,11 @@ class OrderViewSetListTest(BaseOrderViewSetTestCase):
         response = self.client.get(self.url)
         self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
 
-    def test_store_without_permission_returns_404(self):
+    def test_store_without_permission_returns_403(self):
         other_store = Store.objects.create(shop_domain="other.myshopify.com", name="Other", access_token="shpat_other")
         url = reverse("order-list", kwargs={"store_pk": other_store.pk})
         response = self.client.get(url)
-        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
 
     def test_returns_orders_for_store(self):
         self._create_order(name="#1001")
@@ -234,7 +234,7 @@ class OrderViewSetImportTest(BaseOrderViewSetTestCase):
         other_store = Store.objects.create(shop_domain="other.myshopify.com", name="Other", access_token="shpat_other")
         url = reverse("order-import-orders", kwargs={"store_pk": other_store.pk})
         response = self.client.post(url)
-        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
 
 
 class OrderExpenseViewSetTest(BaseOrderViewSetTestCase):
@@ -329,14 +329,14 @@ class OrderExpenseViewSetTest(BaseOrderViewSetTestCase):
         response = self.client.get(self.list_url)
         self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
 
-    def test_store_without_permission_returns_404(self):
+    def test_store_without_permission_returns_403(self):
         other_store = Store.objects.create(shop_domain="other.myshopify.com", name="Other", access_token="shpat_other")
         url = reverse(
             "order-expense-list",
             kwargs={"store_pk": other_store.pk, "order_pk": self.order.pk},
         )
         response = self.client.get(url)
-        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
 
 
 class OrderLineItemViewSetTest(BaseOrderViewSetTestCase):
@@ -381,7 +381,7 @@ class OrderLineItemViewSetTest(BaseOrderViewSetTestCase):
             kwargs={"store_pk": other_store.pk, "order_pk": self.order.pk, "line_item_pk": self.line_item.pk},
         )
         response = self.client.get(url)
-        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
 
     def test_retrieve_wrong_order_returns_404(self):
         other_order = self._create_order(name="#9999", external_id="gid://shopify/Order/9")
@@ -423,4 +423,4 @@ class OrderLineItemViewSetTest(BaseOrderViewSetTestCase):
             kwargs={"store_pk": other_store.pk, "order_pk": self.order.pk, "line_item_pk": self.line_item.pk},
         )
         response = self.client.patch(url, {"distributor_price": "12.50"})
-        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)

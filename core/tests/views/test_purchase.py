@@ -60,11 +60,11 @@ class PurchaseViewSetTest(BasePurchaseViewSetTestCase):
         response = self.client.get(self.url)
         self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
 
-    def test_store_without_permission_returns_404(self):
+    def test_store_without_permission_returns_403(self):
         other_store = Store.objects.create(shop_domain="other.myshopify.com", name="Other", access_token="shpat_other")
         url = reverse("purchase-list", kwargs={"store_pk": other_store.pk})
         response = self.client.get(url)
-        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
 
     def test_returns_purchases_for_store(self):
         self._create_purchase()

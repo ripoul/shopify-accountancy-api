@@ -1,9 +1,11 @@
 from django_filters.rest_framework import DjangoFilterBackend
 from drf_spectacular.utils import extend_schema
 from rest_framework import mixins, viewsets
+from rest_framework.permissions import IsAuthenticated
 
 from core.filters import BankTransactionFilter
 from core.models import BankTransaction
+from core.permissions import CanManageStore
 from core.serializers import BankTransactionSerializer
 
 from .base import get_store_for_user
@@ -18,6 +20,7 @@ class BankTransactionViewSet(
     mixins.DestroyModelMixin,
     viewsets.GenericViewSet,
 ):
+    permission_classes = [IsAuthenticated, CanManageStore]
     serializer_class = BankTransactionSerializer
     filter_backends = [DjangoFilterBackend]
     filterset_class = BankTransactionFilter
