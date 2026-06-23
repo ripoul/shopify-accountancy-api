@@ -62,7 +62,7 @@ class ImportOrdersTest(TestCase):
         )
 
     def _run(self, orders):
-        with patch("core.business_logic.import_orders.get_order", return_value=orders):
+        with patch("core.business_logic.import_orders.get_order", return_value=(orders, False)):
             import_orders(self.store)
 
     def test_creates_order(self):
@@ -282,7 +282,7 @@ class ImportOrdersTest(TestCase):
         self.assertEqual(order.cash_paid_amount, Decimal("0"))
 
     def test_recompute_financials_called(self):
-        with patch("core.business_logic.import_orders.get_order", return_value=[_order_data()]):
+        with patch("core.business_logic.import_orders.get_order", return_value=([_order_data()], False)):
             with patch.object(Order, "recompute_financials") as mock_recompute:
                 import_orders(self.store)
                 mock_recompute.assert_called_once()

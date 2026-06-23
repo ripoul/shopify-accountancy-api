@@ -199,17 +199,18 @@ class OrderViewSetImportTest(BaseOrderViewSetTestCase):
         super().setUp()
         self.url = reverse("order-import-orders", kwargs={"store_pk": self.store.pk})
 
-    @patch("core.views.order.upsert_orders")
-    def test_import_returns_204(self, _mock):
+    @patch("core.views.order.upsert_orders", return_value=False)
+    def test_import_returns_200_with_has_more(self, _mock):
         response = self.client.post(self.url)
-        self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.json(), {"has_more": False})
 
-    @patch("core.views.order.upsert_orders")
+    @patch("core.views.order.upsert_orders", return_value=False)
     def test_import_with_no_orders_calls_with_since_none(self, mock_upsert):
         self.client.post(self.url)
         mock_upsert.assert_called_once_with(self.store, since=None)
 
-    @patch("core.views.order.upsert_orders")
+    @patch("core.views.order.upsert_orders", return_value=False)
     def test_import_uses_last_order_processed_at_as_since(self, mock_upsert):
         processed_at = make_aware(datetime.datetime(2024, 6, 1, 12, 0, 0))
         self._create_order(processed_at=processed_at)
