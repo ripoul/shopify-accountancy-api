@@ -18,8 +18,10 @@ def _money(money_set):
 
 
 def import_orders(store, since=None, external_id=None):
-    for order_data in get_order(store, since=since, external_id=external_id):
+    orders, has_more = get_order(store, since=since, external_id=external_id)
+    for order_data in orders:
         _import_order(store, order_data)
+    return has_more
 
 
 def _import_order(store, order_data):

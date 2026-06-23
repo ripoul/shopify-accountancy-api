@@ -85,6 +85,7 @@ query getOrders($cursor: String, $query: String) {
 
 
 def get_order(store, since=None, external_id=None):
+    """Returns (orders, has_more). Fetches at most one page (50 orders) to avoid timeouts."""
     session = shopify.Session(store.shop_domain, settings.SHOPIFY_API_VERSION, store.access_token)
     shopify.ShopifyResource.activate_session(session)
 
@@ -93,26 +94,17 @@ def get_order(store, since=None, external_id=None):
             result = shopify.GraphQL().execute(SINGLE_ORDER_QUERY, variables={"id": external_id})
             data = json.loads(result)
             order = data["data"]["order"]
-            return [order] if order else []
+            return ([order] if order else []), False
 
         search = f"processed_at:>='{since.isoformat()}'" if since else None
 
-        orders = []
-        cursor = None
+        result = shopify.GraphQL().execute(ORDERS_QUERY, variables={"cursor": None, "query": search})
+        data = json.loads(result)
+        orders_data = data["data"]["orders"]
 
-        while True:
-            result = shopify.GraphQL().execute(ORDERS_QUERY, variables={"cursor": cursor, "query": search})
-            data = json.loads(result)
-            orders_data = data["data"]["orders"]
+        orders = [edge["node"] for edge in orders_data["edges"]]
+        has_more = orders_data["pageInfo"]["hasNextPage"]
 
-            for edge in orders_data["edges"]:
-                orders.append(edge["node"])
-
-            if not orders_data["pageInfo"]["hasNextPage"]:
-                break
-
-            cursor = orders_data["pageInfo"]["endCursor"]
-
-        return orders
+        return orders, has_more
     finally:
         shopify.ShopifyResource.clear_session()

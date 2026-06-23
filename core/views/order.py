@@ -41,12 +41,13 @@ class OrderViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, viewsets.Ge
 
         if external_id:
             upsert_orders(store, external_id=external_id)
-        else:
-            last_order = Order.objects.filter(store=store).order_by("-processed_at").first()
-            since = last_order.processed_at if last_order else None
-            upsert_orders(store, since=since)
+            return Response(status=status.HTTP_204_NO_CONTENT)
 
-        return Response(status=status.HTTP_204_NO_CONTENT)
+        last_order = Order.objects.filter(store=store).order_by("-processed_at").first()
+        since = last_order.processed_at if last_order else None
+        has_more = upsert_orders(store, since=since)
+
+        return Response({"has_more": has_more})
 
 
 @extend_schema(tags=["order"])
