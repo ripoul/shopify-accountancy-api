@@ -36,7 +36,7 @@ class UpdateStoreCashAmountSignalTest(TestCase):
         self.store.refresh_from_db()
         self.assertEqual(self.store.cash_amount, Decimal("50.00"))
 
-    def test_does_not_update_on_save(self):
+    def test_updates_cash_amount_on_save(self):
         txn = self._create_transaction("50.00")
         self.store.refresh_from_db()
         self.assertEqual(self.store.cash_amount, Decimal("50.00"))
@@ -45,4 +45,14 @@ class UpdateStoreCashAmountSignalTest(TestCase):
         txn.save()
 
         self.store.refresh_from_db()
+        self.assertEqual(self.store.cash_amount, Decimal("100.00"))
+
+    def test_recounts_cash_amount_on_delete(self):
+        txn = self._create_transaction("50.00")
+        self.store.refresh_from_db()
         self.assertEqual(self.store.cash_amount, Decimal("50.00"))
+
+        txn.delete()
+
+        self.store.refresh_from_db()
+        self.assertEqual(self.store.cash_amount, Decimal("0.00"))
