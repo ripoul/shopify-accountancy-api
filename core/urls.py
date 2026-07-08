@@ -10,6 +10,7 @@ from .views import (
     OrderViewSet,
     ProductVariantViewSet,
     ProductViewSet,
+    ProfileMeViewSet,
     PurchaseViewSet,
     RoyaltyViewSet,
     StatsViewSet,
@@ -47,5 +48,10 @@ router.register(r"stores/(?P<store_pk>\d+)/stats", StatsViewSet, basename="stat"
 urlpatterns = [
     path("users/", UserCreateView.as_view(), name="user-create"),
     path("users/me/", UserMeView.as_view(), name="user-me"),
+    path(
+        "users/me/profile/",
+        ProfileMeViewSet.as_view({"get": "retrieve", "put": "update", "patch": "partial_update"}),
+        name="profile-me",
+    ),
     path("", include(router.urls)),
 ]

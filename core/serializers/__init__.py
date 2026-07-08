@@ -8,6 +8,7 @@ from .order import (
 )
 from .product import CollectionSerializer, ProductSerializer
 from .product_variant import ProductVariantSerializer
+from .profile import ProfileSerializer
 from .purchase import PurchaseSerializer
 from .royalty import RoyaltySerializer
 from .stats import DashboardStatsSerializer, QuarterStatsSerializer
@@ -27,6 +28,7 @@ __all__ = [
     "OrderSerializer",
     "ProductSerializer",
     "ProductVariantSerializer",
+    "ProfileSerializer",
     "PurchaseSerializer",
     "QuarterStatsSerializer",
     "RoyaltySerializer",

@@ -3,6 +3,7 @@ from .cash_transaction import CashTransactionViewSet
 from .order import OrderExpenseViewSet, OrderLineItemViewSet, OrderViewSet
 from .product import CollectionViewSet, ProductViewSet
 from .product_variant import ProductVariantViewSet
+from .profile import ProfileMeViewSet
 from .purchase import PurchaseViewSet
 from .royalty import RoyaltyViewSet
 from .stats import StatsViewSet
@@ -20,6 +21,7 @@ __all__ = [
     "OrderViewSet",
     "ProductVariantViewSet",
     "ProductViewSet",
+    "ProfileMeViewSet",
     "PurchaseViewSet",
     "RoyaltyViewSet",
     "StatsViewSet",
