@@ -73,5 +73,5 @@ def create_bank_transaction_for_order_expense(sender, instance, **kwargs):
             title=f"Delivery fee for {instance.order.name}",
             date=instance.order.processed_at.date(),
             amount=-instance.amount,
-            source=BankTransaction.Source.ORDER,
+            source=BankTransaction.Source.ORDER_DELIVERY,
         )

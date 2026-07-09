@@ -4,7 +4,7 @@ from decimal import Decimal
 from django.test import TestCase
 from django.utils.timezone import make_aware
 
-from core.models import BankTransaction, CashTransaction, Order, Store
+from core.models import BankTransaction, CashTransaction, Order, OrderExpense, Store
 
 
 class OrderSignalTest(TestCase):
@@ -118,3 +118,33 @@ class OrderSignalTest(TestCase):
         txn = BankTransaction.objects.first()
         self.assertEqual(txn.order, order)
         self.assertEqual(txn.store, self.store)
+
+    # --- BankTransaction for OrderExpense (delivery) ---
+
+    def test_creates_bank_transaction_when_delivery_expense_added(self):
+        order = self._create_order()
+        OrderExpense.objects.create(
+            order=order,
+            type=OrderExpense.Type.DELIVERY,
+            source=OrderExpense.Source.MANUAL,
+            amount=Decimal("5.00"),
+        )
+
+        self.assertEqual(BankTransaction.objects.count(), 1)
+        txn = BankTransaction.objects.first()
+        self.assertEqual(txn.source, BankTransaction.Source.ORDER_DELIVERY)
+        self.assertEqual(txn.amount, Decimal("-5.00"))
+        self.assertEqual(txn.store, self.store)
+        self.assertIn(order.name, txn.title)
+        self.assertEqual(txn.date, order.processed_at.date())
+
+    def test_no_bank_transaction_when_non_delivery_expense_added(self):
+        order = self._create_order()
+        OrderExpense.objects.create(
+            order=order,
+            type=OrderExpense.Type.PACKAGING,
+            source=OrderExpense.Source.MANUAL,
+            amount=Decimal("2.00"),
+        )
+
+        self.assertFalse(BankTransaction.objects.filter(source=BankTransaction.Source.ORDER_DELIVERY).exists())
