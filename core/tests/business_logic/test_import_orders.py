@@ -137,6 +137,30 @@ class ImportOrdersTest(TestCase):
         item = OrderLineItem.objects.get(external_id="gid://shopify/LineItem/1")
         self.assertEqual(item.variant, variant)
         self.assertEqual(item.product, product)
+        self.assertEqual(item.title, "T-shirt - M")
+
+    def test_default_title_variant_keeps_plain_title(self):
+        product = Product.objects.create(store=self.store, external_id="gid://shopify/Product/1", title="Mug")
+        ProductVariant.objects.create(
+            product=product, external_id="gid://shopify/ProductVariant/1", title="Default Title", price="9.99"
+        )
+        line_items = [
+            {
+                "node": {
+                    "id": "gid://shopify/LineItem/1",
+                    "title": "Mug",
+                    "quantity": 1,
+                    "variant": {"id": "gid://shopify/ProductVariant/1"},
+                    "product": {"id": "gid://shopify/Product/1"},
+                    "originalUnitPriceSet": _money("9.99"),
+                    "discountAllocations": [],
+                }
+            }
+        ]
+        self._run([_order_data(line_items=line_items)])
+
+        item = OrderLineItem.objects.get(external_id="gid://shopify/LineItem/1")
+        self.assertEqual(item.title, "Mug")
 
     def test_missing_variant_sets_null(self):
         line_items = [

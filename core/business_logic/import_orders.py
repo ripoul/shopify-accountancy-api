@@ -9,6 +9,14 @@ SUCCESS_STATUS = "SUCCESS"
 SALE_KINDS = {"SALE", "CAPTURE"}
 STORE_CREDIT_GATEWAY = "store-credit"
 CASH_GATEWAY = "cash"
+DEFAULT_VARIANT_TITLE = "Default Title"
+
+
+def _line_item_title(node, variant):
+    title = node["title"]
+    if variant and variant.title and variant.title != DEFAULT_VARIANT_TITLE:
+        return f"{title} - {variant.title}"
+    return title
 
 
 def _money(money_set):
@@ -85,7 +93,7 @@ def _import_line_items(store, order, order_data):
             order=order,
             external_id=node["id"],
             defaults={
-                "title": node["title"],
+                "title": _line_item_title(node, variant),
                 "quantity": node["quantity"],
                 "unit_price": _money(node.get("originalUnitPriceSet")),
                 "variant": variant,
