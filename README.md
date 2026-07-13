@@ -55,7 +55,7 @@ CORS_ALLOWED_ORIGINS=http://localhost:3000
 SHOPIFY_API_KEY=your-api-key
 SHOPIFY_API_SECRET=your-api-secret
 SHOPIFY_REDIRECT_URI=http://localhost:8000/auth/callback
-SHOPIFY_SCOPES=read_orders,read_products
+SHOPIFY_SCOPES=read_all_orders,read_orders,read_products,read_returns
 ```
 
 ### Running the project

@@ -10,7 +10,7 @@ from guardian.shortcuts import assign_perm
 from rest_framework import status
 from rest_framework.test import APIClient
 
-from core.models import Order, OrderExpense, OrderLineItem, Store
+from core.models import Order, OrderExpense, OrderLineItem, Return, ReturnLineItem, Store
 
 
 class BaseOrderViewSetTestCase(TestCase):
@@ -192,6 +192,44 @@ class OrderViewSetListTest(BaseOrderViewSetTestCase):
         self._create_order()
         response = self.client.get(self.url)
         self.assertIn("discounts", response.data["results"][0])
+
+    def test_response_includes_nested_returns(self):
+        self._create_order()
+        response = self.client.get(self.url)
+        self.assertIn("returns", response.data["results"][0])
+
+    def test_response_returns_with_nested_line_items(self):
+        order = self._create_order()
+        line_item = OrderLineItem.objects.create(
+            order=order,
+            external_id="gid://shopify/LineItem/1",
+            title="T-shirt",
+            quantity=1,
+            unit_price=Decimal("29.99"),
+            distributor_price=Decimal("12.00"),
+        )
+        order_return = Return.objects.create(
+            order=order,
+            external_id="gid://shopify/Return/1",
+            name="#1001-R1",
+            status="CLOSED",
+            amount=Decimal("29.99"),
+        )
+        ReturnLineItem.objects.create(
+            return_ref=order_return,
+            order_line_item=line_item,
+            external_id="gid://shopify/ReturnLineItem/1",
+            quantity=1,
+            amount=Decimal("29.99"),
+        )
+
+        response = self.client.get(self.url)
+        returns = response.data["results"][0]["returns"]
+        self.assertEqual(len(returns), 1)
+        self.assertEqual(returns[0]["name"], "#1001-R1")
+        self.assertEqual(Decimal(returns[0]["amount"]), Decimal("29.99"))
+        self.assertEqual(len(returns[0]["line_items"]), 1)
+        self.assertEqual(returns[0]["line_items"][0]["order_line_item"], line_item.pk)
 
 
 class OrderViewSetImportTest(BaseOrderViewSetTestCase):

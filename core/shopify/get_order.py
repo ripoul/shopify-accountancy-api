@@ -50,6 +50,27 @@ fragment OrderFields on Order {
     amountSet { shopMoney { amount } }
     fees { amount { amount } }
   }
+  returns(first: 10) {
+    edges {
+      node {
+        id
+        name
+        status
+        returnLineItems(first: 10) {
+          edges {
+            node {
+              id
+              quantity
+              ... on ReturnLineItem {
+                withCodeDiscountedTotalPriceSet { shopMoney { amount } }
+                fulfillmentLineItem { lineItem { id } }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
 }
 """
 

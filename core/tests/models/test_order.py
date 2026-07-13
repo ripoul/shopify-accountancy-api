@@ -4,7 +4,7 @@ from decimal import Decimal
 from django.test import TestCase
 from django.utils.timezone import make_aware
 
-from core.models import Order, OrderExpense, OrderLineItem, Product, ProductVariant, Store
+from core.models import Order, OrderExpense, OrderLineItem, Product, ProductVariant, Return, ReturnLineItem, Store
 
 
 class OrderModelTest(TestCase):
@@ -144,6 +144,74 @@ class OrderModelTest(TestCase):
         self.assertEqual(order.shopify_transfer_amount, Decimal("100.00"))
         # but net_margin = 100 - 5 - 0 = 95
         self.assertEqual(order.net_margin, Decimal("95.00"))
+
+    def _add_return(self, order, line_item, quantity=1, amount="50.00"):
+        order_return = Return.objects.create(
+            order=order,
+            external_id="gid://shopify/Return/1",
+            name="#1001-R1",
+            status="CLOSED",
+            amount=Decimal(amount),
+        )
+        ReturnLineItem.objects.create(
+            return_ref=order_return,
+            order_line_item=line_item,
+            external_id="gid://shopify/ReturnLineItem/1",
+            quantity=quantity,
+            amount=Decimal(amount),
+        )
+        return order_return
+
+    def test_recompute_financials_total_returns_and_net_revenue(self):
+        order = self._create_order(total_price="100.00")
+        line_item = OrderLineItem.objects.create(
+            order=order,
+            external_id="gid://shopify/LineItem/1",
+            title="T-shirt",
+            quantity=2,
+            unit_price=Decimal("50.00"),
+            distributor_price=Decimal("12.00"),
+            variant=self.variant,
+        )
+        self._add_return(order, line_item, quantity=1, amount="50.00")
+
+        order.recompute_financials()
+
+        order.refresh_from_db()
+        self.assertEqual(order.total_returns, Decimal("50.00"))
+        self.assertEqual(order.net_revenue, Decimal("50.00"))
+        self.assertEqual(order.returns_purchase_cost, Decimal("12.00"))  # 12.00 * 1
+
+    def test_recompute_financials_net_margin_with_return_restock(self):
+        order = self._create_order(total_price="100.00")
+        line_item = OrderLineItem.objects.create(
+            order=order,
+            external_id="gid://shopify/LineItem/1",
+            title="T-shirt",
+            quantity=2,
+            unit_price=Decimal("50.00"),
+            distributor_price=Decimal("12.00"),
+            variant=self.variant,
+        )
+        self._add_return(order, line_item, quantity=1, amount="50.00")
+
+        order.recompute_financials()
+
+        order.refresh_from_db()
+        # purchase_cost = 24 ; net_revenue = 50 ; net_margin = 50 - (24 - 12) = 38
+        self.assertEqual(order.net_margin, Decimal("38.00"))
+        # after_tax_result = 38 - (50 * 0.134) = 38 - 6.70 = 31.30
+        self.assertEqual(order.after_tax_result, Decimal("31.30"))
+
+    def test_recompute_financials_no_returns_defaults(self):
+        order = self._create_order(total_price="100.00")
+
+        order.recompute_financials()
+
+        order.refresh_from_db()
+        self.assertEqual(order.total_returns, Decimal("0"))
+        self.assertEqual(order.returns_purchase_cost, Decimal("0"))
+        self.assertEqual(order.net_revenue, Decimal("100.00"))
 
     def test_recompute_financials_sets_quarter(self):
         order = self._create_order(processed_at=make_aware(datetime.datetime(2024, 3, 15, 10, 0, 0)))

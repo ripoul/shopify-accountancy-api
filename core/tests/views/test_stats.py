@@ -50,6 +50,7 @@ class BaseStatsViewSetTestCase(TestCase):
         net_margin="40.00",
         after_tax_result="30.00",
         external_id="gid://shopify/Order/1",
+        net_revenue=None,
     ):
         return Order.objects.create(
             store=self.store,
@@ -57,6 +58,7 @@ class BaseStatsViewSetTestCase(TestCase):
             name=f"#{external_id[-1]}",
             processed_at=processed_at,
             total_price=Decimal(total_price),
+            net_revenue=Decimal(net_revenue if net_revenue is not None else total_price),
             net_margin=Decimal(net_margin),
             after_tax_result=Decimal(after_tax_result),
         )
@@ -173,6 +175,18 @@ class CurrentQuarterStatsTest(BaseStatsViewSetTestCase):
         )
         response = self.client.get(self.url)
         self.assertEqual(response.data["current_quarter"]["revenue"], "300.00")
+
+    @patch("core.views.stats.timezone")
+    def test_current_quarter_revenue_reflects_net_revenue_with_returns(self, mock_tz):
+        mock_tz.localdate.return_value = FIXED_TODAY
+        self._create_order(
+            processed_at=make_aware(datetime.datetime(2025, 4, 10)),
+            total_price="100.00",
+            net_revenue="70.00",
+            external_id="gid://shopify/Order/1",
+        )
+        response = self.client.get(self.url)
+        self.assertEqual(response.data["current_quarter"]["revenue"], "70.00")
 
     @patch("core.views.stats.timezone")
     def test_current_quarter_order_count(self, mock_tz):

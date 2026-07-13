@@ -18,8 +18,11 @@ class Order(models.Model):
     subtotal_price = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal("0"))
     total_discounts = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal("0"))
     total_price = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal("0"))
+    total_returns = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal("0"))
+    net_revenue = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal("0"))
     cash_paid_amount = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal("0"))
     product_purchase_cost = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal("0"))
+    returns_purchase_cost = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal("0"))
     net_margin = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal("0"))
     after_tax_result = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal("0"))
     quarter = models.CharField(max_length=7, blank=True)
@@ -52,14 +55,29 @@ class Order(models.Model):
             Decimal("0"),
         )
 
+        returns_total = Decimal("0")
+        returns_cost = Decimal("0")
+        for order_return in self.returns.all():
+            returns_total += order_return.amount
+            for return_line_item in order_return.line_items.all():
+                line_item = return_line_item.order_line_item
+                if line_item and line_item.distributor_price:
+                    returns_cost += line_item.distributor_price * return_line_item.quantity
+
         self.product_purchase_cost = purchase_cost
-        self.net_margin = self.total_price - total_expenses - purchase_cost
-        self.after_tax_result = self.net_margin - (self.total_price * AFTER_TAX_RATE)
+        self.total_returns = returns_total
+        self.returns_purchase_cost = returns_cost
+        self.net_revenue = self.total_price - returns_total
+        self.net_margin = self.net_revenue - total_expenses - (purchase_cost - returns_cost)
+        self.after_tax_result = self.net_margin - (self.net_revenue * AFTER_TAX_RATE)
         self.shopify_transfer_amount = self.total_price - shopify_fee
         self.quarter = self._compute_quarter()
         self.save(
             update_fields=[
                 "product_purchase_cost",
+                "total_returns",
+                "returns_purchase_cost",
+                "net_revenue",
                 "net_margin",
                 "after_tax_result",
                 "shopify_transfer_amount",
@@ -140,3 +158,42 @@ class OrderDiscount(models.Model):
 
     def __str__(self):
         return f"{self.type} - {self.amount}"
+
+
+class Return(models.Model):
+    order = models.ForeignKey(Order, on_delete=models.CASCADE, related_name="returns")
+    external_id = models.CharField(max_length=255)
+    name = models.CharField(max_length=255, blank=True)
+    status = models.CharField(max_length=50, blank=True)
+    amount = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal("0"))
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        unique_together = ("order", "external_id")
+
+    def __str__(self):
+        return f"{self.name} - {self.amount}"
+
+
+class ReturnLineItem(models.Model):
+    return_ref = models.ForeignKey(Return, on_delete=models.CASCADE, related_name="line_items")
+    order_line_item = models.ForeignKey(
+        OrderLineItem,
+        on_delete=models.SET_NULL,
+        related_name="return_line_items",
+        null=True,
+        blank=True,
+    )
+    external_id = models.CharField(max_length=255)
+    title = models.CharField(max_length=255, blank=True)
+    quantity = models.PositiveIntegerField(default=0)
+    amount = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal("0"))
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        unique_together = ("return_ref", "external_id")
+
+    def __str__(self):
+        return f"{self.title} x{self.quantity}"

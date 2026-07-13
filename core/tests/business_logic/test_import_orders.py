@@ -4,7 +4,17 @@ from unittest.mock import patch
 from django.test import TestCase
 
 from core.business_logic.import_orders import import_orders
-from core.models import Order, OrderDiscount, OrderExpense, OrderLineItem, Product, ProductVariant, Store
+from core.models import (
+    Order,
+    OrderDiscount,
+    OrderExpense,
+    OrderLineItem,
+    Product,
+    ProductVariant,
+    Return,
+    ReturnLineItem,
+    Store,
+)
 
 
 def _money(amount):
@@ -25,6 +35,28 @@ def _transaction(
     }
 
 
+def _return_node(return_id="gid://shopify/Return/1", name="#1001-R1", status="CLOSED", return_line_items=None):
+    return {
+        "node": {
+            "id": return_id,
+            "name": name,
+            "status": status,
+            "returnLineItems": {"edges": return_line_items or []},
+        }
+    }
+
+
+def _return_line_item(rli_id, line_item_id, quantity=1, amount="29.99"):
+    return {
+        "node": {
+            "id": rli_id,
+            "quantity": quantity,
+            "withCodeDiscountedTotalPriceSet": _money(amount),
+            "fulfillmentLineItem": {"lineItem": {"id": line_item_id}},
+        }
+    }
+
+
 def _order_data(
     order_id="gid://shopify/Order/1",
     name="#1001",
@@ -37,6 +69,7 @@ def _order_data(
     discount_applications=None,
     currency_code="EUR",
     payment_gateway_names=None,
+    returns=None,
 ):
     return {
         "id": order_id,
@@ -50,6 +83,7 @@ def _order_data(
         "lineItems": {"edges": line_items or []},
         "discountApplications": {"edges": discount_applications or []},
         "transactions": transactions if transactions is not None else [_transaction()],
+        "returns": {"edges": returns or []},
     }
 
 
@@ -320,3 +354,93 @@ class ImportOrdersTest(TestCase):
         )
 
         self.assertEqual(Order.objects.filter(store=self.store).count(), 2)
+
+    def _order_with_return(self, quantity=1, amount="10.00"):
+        line_items = [
+            {
+                "node": {
+                    "id": "gid://shopify/LineItem/1",
+                    "title": "T-shirt",
+                    "quantity": 2,
+                    "variant": None,
+                    "product": None,
+                    "originalUnitPriceSet": _money("10.00"),
+                    "discountAllocations": [],
+                }
+            }
+        ]
+        returns = [
+            _return_node(
+                return_line_items=[
+                    _return_line_item(
+                        "gid://shopify/ReturnLineItem/1",
+                        "gid://shopify/LineItem/1",
+                        quantity=quantity,
+                        amount=amount,
+                    )
+                ]
+            )
+        ]
+        return _order_data(total_price="20.00", line_items=line_items, returns=returns)
+
+    def test_creates_return(self):
+        self._run([self._order_with_return(amount="10.00")])
+
+        order = Order.objects.get(store=self.store)
+        self.assertEqual(order.returns.count(), 1)
+        order_return = order.returns.first()
+        self.assertEqual(order_return.external_id, "gid://shopify/Return/1")
+        self.assertEqual(order_return.name, "#1001-R1")
+        self.assertEqual(order_return.status, "CLOSED")
+        self.assertEqual(order_return.amount, Decimal("10.00"))
+
+    def test_creates_return_line_item_linked_to_order_line_item(self):
+        self._run([self._order_with_return(quantity=1, amount="10.00")])
+
+        return_line_item = ReturnLineItem.objects.get(external_id="gid://shopify/ReturnLineItem/1")
+        self.assertEqual(return_line_item.quantity, 1)
+        self.assertEqual(return_line_item.amount, Decimal("10.00"))
+        self.assertEqual(return_line_item.order_line_item.external_id, "gid://shopify/LineItem/1")
+        self.assertEqual(return_line_item.title, "T-shirt")
+
+    def test_return_amount_sums_line_items(self):
+        returns = [
+            _return_node(
+                return_line_items=[
+                    _return_line_item("gid://shopify/ReturnLineItem/1", "gid://shopify/LineItem/1", amount="4.00"),
+                    _return_line_item("gid://shopify/ReturnLineItem/2", "gid://shopify/LineItem/1", amount="6.00"),
+                ]
+            )
+        ]
+        self._run([_order_data(total_price="20.00", returns=returns)])
+
+        order_return = Return.objects.get(external_id="gid://shopify/Return/1")
+        self.assertEqual(order_return.amount, Decimal("10.00"))
+
+    def test_return_line_item_null_when_line_item_missing(self):
+        returns = [
+            _return_node(
+                return_line_items=[
+                    _return_line_item("gid://shopify/ReturnLineItem/1", "gid://shopify/LineItem/999", amount="10.00")
+                ]
+            )
+        ]
+        self._run([_order_data(total_price="20.00", returns=returns)])
+
+        return_line_item = ReturnLineItem.objects.get(external_id="gid://shopify/ReturnLineItem/1")
+        self.assertIsNone(return_line_item.order_line_item)
+
+    def test_return_import_is_idempotent(self):
+        order_data = self._order_with_return(amount="10.00")
+        self._run([order_data])
+        self._run([order_data])
+
+        self.assertEqual(Return.objects.filter(external_id="gid://shopify/Return/1").count(), 1)
+        self.assertEqual(ReturnLineItem.objects.filter(external_id="gid://shopify/ReturnLineItem/1").count(), 1)
+
+    def test_return_updates_order_financials(self):
+        self._run([self._order_with_return(quantity=1, amount="10.00")])
+
+        order = Order.objects.get(store=self.store)
+        self.assertEqual(order.total_returns, Decimal("10.00"))
+        self.assertEqual(order.net_revenue, Decimal("10.00"))

@@ -60,11 +60,11 @@ def _compute_period_stats(store, start_date: datetime.date, end_date: datetime.d
         processed_at__date__gte=start_date,
         processed_at__date__lte=end_date,
     ).aggregate(
-        revenue=Sum("total_price"),
+        revenue=Sum("net_revenue"),
         profit_before_tax=Sum("net_margin"),
         profit_after_tax=Sum("after_tax_result"),
         order_count=Count("id"),
-        avg_basket=Avg("total_price"),
+        avg_basket=Avg("net_revenue"),
     )
 
     revenue = agg["revenue"] or Decimal("0")

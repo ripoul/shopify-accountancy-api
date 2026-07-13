@@ -2,7 +2,16 @@ from decimal import Decimal
 
 from django.utils.dateparse import parse_datetime
 
-from core.models import Order, OrderDiscount, OrderExpense, OrderLineItem, Product, ProductVariant
+from core.models import (
+    Order,
+    OrderDiscount,
+    OrderExpense,
+    OrderLineItem,
+    Product,
+    ProductVariant,
+    Return,
+    ReturnLineItem,
+)
 from core.shopify import get_order
 
 SUCCESS_STATUS = "SUCCESS"
@@ -60,6 +69,7 @@ def _import_order(store, order_data):
     _import_shopify_fee(order, sales)
     _import_discounts(order, order_data)
     _import_store_credit(order, sales)
+    _import_returns(order, order_data)
 
     order.recompute_financials()
 
@@ -167,3 +177,43 @@ def _import_store_credit(order, sales):
         type=OrderDiscount.Type.STORE_CREDIT,
         defaults={"amount": credit_total, "title": "Store credit"},
     )
+
+
+def _import_returns(order, order_data):
+    line_items_by_external_id = {item.external_id: item for item in order.line_items.all()}
+
+    for edge in (order_data.get("returns") or {}).get("edges", []):
+        node = edge["node"]
+        return_line_items = node["returnLineItems"]["edges"]
+
+        amount = sum(
+            (_money(rli["node"].get("withCodeDiscountedTotalPriceSet")) for rli in return_line_items),
+            Decimal("0"),
+        )
+
+        order_return, _ = Return.objects.update_or_create(
+            order=order,
+            external_id=node["id"],
+            defaults={
+                "name": node.get("name") or "",
+                "status": node.get("status") or "",
+                "amount": amount,
+            },
+        )
+
+        for rli in return_line_items:
+            rli_node = rli["node"]
+            fulfillment_line_item = rli_node.get("fulfillmentLineItem") or {}
+            line_item_data = fulfillment_line_item.get("lineItem") or {}
+            order_line_item = line_items_by_external_id.get(line_item_data.get("id"))
+
+            ReturnLineItem.objects.update_or_create(
+                return_ref=order_return,
+                external_id=rli_node["id"],
+                defaults={
+                    "order_line_item": order_line_item,
+                    "title": order_line_item.title if order_line_item else "",
+                    "quantity": rli_node["quantity"],
+                    "amount": _money(rli_node.get("withCodeDiscountedTotalPriceSet")),
+                },
+            )

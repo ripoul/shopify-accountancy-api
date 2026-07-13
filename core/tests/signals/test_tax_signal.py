@@ -15,13 +15,14 @@ class TaxSignalFromOrderTest(TestCase):
             access_token="shpat_test",
         )
 
-    def _create_order(self, total_price, processed_at, external_id="gid://shopify/Order/1"):
+    def _create_order(self, total_price, processed_at, external_id="gid://shopify/Order/1", net_revenue=None):
         return Order.objects.create(
             store=self.store,
             external_id=external_id,
             name="#1001",
             processed_at=make_aware(processed_at),
             total_price=total_price,
+            net_revenue=total_price if net_revenue is None else net_revenue,
             quarter="",
         )
 
@@ -52,12 +53,25 @@ class TaxSignalFromOrderTest(TestCase):
         tax = Tax.objects.get(store=self.store, quarter="2024/01")
         self.assertEqual(tax.amount, Decimal("40.20"))  # 300 * 0.134
 
+    def test_amount_uses_net_revenue_when_returns(self):
+        order = self._create_order(
+            Decimal("100.00"),
+            datetime.datetime(2024, 3, 15, 10, 0, 0),
+            net_revenue=Decimal("70.00"),
+        )
+        order.quarter = "2024/01"
+        order.save()
+
+        tax = Tax.objects.get(store=self.store, quarter="2024/01")
+        self.assertEqual(tax.amount, Decimal("9.38"))  # 70 * 0.134
+
     def test_recalculates_on_order_update(self):
         order = self._create_order(Decimal("100.00"), datetime.datetime(2024, 3, 15, 10, 0, 0))
         order.quarter = "2024/01"
         order.save()
 
         order.total_price = Decimal("200.00")
+        order.net_revenue = Decimal("200.00")
         order.save()
 
         tax = Tax.objects.get(store=self.store, quarter="2024/01")

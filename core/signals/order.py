@@ -5,7 +5,7 @@ from django.db.models.signals import post_save
 from django.dispatch import receiver
 
 from core.business_logic.compute_royalty import recalculate_royalty_for_quarter
-from core.models import BankTransaction, CashTransaction, Order, OrderExpense, Tax
+from core.models import BankTransaction, CashTransaction, Order, OrderExpense, Return, Tax
 
 TAX_RATE = Decimal("0.134")
 
@@ -48,7 +48,7 @@ def update_quarterly_tax(sender, instance, **kwargs):
     except Tax.DoesNotExist:
         pass
 
-    total = Order.objects.filter(store=instance.store, quarter=instance.quarter).aggregate(total=Sum("total_price"))[
+    total = Order.objects.filter(store=instance.store, quarter=instance.quarter).aggregate(total=Sum("net_revenue"))[
         "total"
     ] or Decimal("0")
     Tax.objects.update_or_create(
@@ -74,4 +74,16 @@ def create_bank_transaction_for_order_expense(sender, instance, **kwargs):
             date=instance.order.processed_at.date(),
             amount=-instance.amount,
             source=BankTransaction.Source.ORDER_DELIVERY,
+        )
+
+
+@receiver(post_save, sender=Return)
+def create_bank_transaction_for_return(sender, instance, created, **kwargs):
+    if created and instance.amount:
+        BankTransaction.objects.create(
+            store=instance.order.store,
+            title=f"Return {instance.name}",
+            date=instance.order.processed_at.date(),
+            amount=-instance.amount,
+            source=BankTransaction.Source.RETURN,
         )

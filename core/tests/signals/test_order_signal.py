@@ -4,7 +4,7 @@ from decimal import Decimal
 from django.test import TestCase
 from django.utils.timezone import make_aware
 
-from core.models import BankTransaction, CashTransaction, Order, OrderExpense, Store
+from core.models import BankTransaction, CashTransaction, Order, OrderExpense, Return, Store
 
 
 class OrderSignalTest(TestCase):
@@ -148,3 +148,44 @@ class OrderSignalTest(TestCase):
         )
 
         self.assertFalse(BankTransaction.objects.filter(source=BankTransaction.Source.ORDER_DELIVERY).exists())
+
+    # --- BankTransaction for Return ---
+
+    def _create_return(self, order, amount=Decimal("50.00"), name="#1001-R1"):
+        return Return.objects.create(
+            order=order,
+            external_id="gid://shopify/Return/1",
+            name=name,
+            status="CLOSED",
+            amount=amount,
+        )
+
+    def test_creates_bank_transaction_when_return_created(self):
+        order = self._create_order()
+        self._create_return(order, amount=Decimal("50.00"))
+
+        txn = BankTransaction.objects.get(source=BankTransaction.Source.RETURN)
+        self.assertEqual(txn.amount, Decimal("-50.00"))
+        self.assertEqual(txn.store, self.store)
+        self.assertEqual(txn.date, order.processed_at.date())
+
+    def test_return_bank_transaction_title_contains_return_name(self):
+        order = self._create_order()
+        self._create_return(order, name="#1001-R1")
+
+        txn = BankTransaction.objects.get(source=BankTransaction.Source.RETURN)
+        self.assertIn("#1001-R1", txn.title)
+
+    def test_no_bank_transaction_when_return_amount_zero(self):
+        order = self._create_order()
+        self._create_return(order, amount=Decimal("0"))
+
+        self.assertFalse(BankTransaction.objects.filter(source=BankTransaction.Source.RETURN).exists())
+
+    def test_no_duplicate_return_bank_transaction_on_resave(self):
+        order = self._create_order()
+        order_return = self._create_return(order, amount=Decimal("50.00"))
+        order_return.status = "OPEN"
+        order_return.save()
+
+        self.assertEqual(BankTransaction.objects.filter(source=BankTransaction.Source.RETURN).count(), 1)

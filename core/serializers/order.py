@@ -1,6 +1,6 @@
 from rest_framework import serializers
 
-from core.models import Order, OrderDiscount, OrderExpense, OrderLineItem
+from core.models import Order, OrderDiscount, OrderExpense, OrderLineItem, Return, ReturnLineItem
 
 
 class OrderLineItemSerializer(serializers.ModelSerializer):
@@ -8,6 +8,22 @@ class OrderLineItemSerializer(serializers.ModelSerializer):
         model = OrderLineItem
         fields = ["id", "external_id", "title", "quantity", "unit_price", "distributor_price", "variant", "product"]
         read_only_fields = ["id", "external_id", "title", "quantity", "unit_price", "variant", "product"]
+
+
+class ReturnLineItemSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ReturnLineItem
+        fields = ["id", "external_id", "order_line_item", "title", "quantity", "amount"]
+        read_only_fields = fields
+
+
+class ReturnSerializer(serializers.ModelSerializer):
+    line_items = ReturnLineItemSerializer(many=True, read_only=True)
+
+    class Meta:
+        model = Return
+        fields = ["id", "external_id", "name", "status", "amount", "line_items"]
+        read_only_fields = fields
 
 
 class OrderDiscountSerializer(serializers.ModelSerializer):
@@ -33,6 +49,7 @@ class OrderSerializer(serializers.ModelSerializer):
     line_items = OrderLineItemSerializer(many=True, read_only=True)
     expenses = OrderExpenseSerializer(many=True, read_only=True)
     discounts = OrderDiscountSerializer(many=True, read_only=True)
+    returns = ReturnSerializer(many=True, read_only=True)
 
     class Meta:
         model = Order
@@ -46,8 +63,11 @@ class OrderSerializer(serializers.ModelSerializer):
             "subtotal_price",
             "total_discounts",
             "total_price",
+            "total_returns",
+            "net_revenue",
             "cash_paid_amount",
             "product_purchase_cost",
+            "returns_purchase_cost",
             "net_margin",
             "after_tax_result",
             "quarter",
@@ -55,6 +75,7 @@ class OrderSerializer(serializers.ModelSerializer):
             "line_items",
             "expenses",
             "discounts",
+            "returns",
             "created_at",
             "updated_at",
         ]

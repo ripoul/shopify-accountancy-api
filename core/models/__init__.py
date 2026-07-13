@@ -1,6 +1,6 @@
 from .bank_transaction import BankTransaction
 from .cash_transaction import CashTransaction
-from .order import Order, OrderDiscount, OrderExpense, OrderLineItem
+from .order import Order, OrderDiscount, OrderExpense, OrderLineItem, Return, ReturnLineItem
 from .product import Collection, Product, ProductVariant
 from .profile import Profile
 from .purchase import Purchase
@@ -21,6 +21,8 @@ __all__ = [
     "ProductVariant",
     "Profile",
     "Purchase",
+    "Return",
+    "ReturnLineItem",
     "Royalty",
     "Store",
     "Supplier",

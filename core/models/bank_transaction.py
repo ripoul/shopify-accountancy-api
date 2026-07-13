@@ -17,6 +17,7 @@ class BankTransaction(models.Model):
         TAX = "TAX", "Tax"
         ROYALTY = "ROYALTY", "Royalty"
         ORDER_DELIVERY = "ORDER_DELIVERY", "Order Delivery"
+        RETURN = "RETURN", "Return"
         OTHER = "OTHER", "Other"
 
     store = models.ForeignKey(Store, on_delete=models.CASCADE, related_name="bank_transactions")
