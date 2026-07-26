@@ -22,7 +22,7 @@ class ReturnSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Return
-        fields = ["id", "external_id", "name", "status", "amount", "line_items"]
+        fields = ["id", "external_id", "source", "name", "status", "amount", "line_items"]
         read_only_fields = fields
 
 

@@ -161,8 +161,13 @@ class OrderDiscount(models.Model):
 
 
 class Return(models.Model):
+    class Source(models.TextChoices):
+        RETURN = "RETURN", "Return"
+        REFUND = "REFUND", "Refund"
+
     order = models.ForeignKey(Order, on_delete=models.CASCADE, related_name="returns")
     external_id = models.CharField(max_length=255)
+    source = models.CharField(max_length=10, choices=Source.choices, default=Source.RETURN)
     name = models.CharField(max_length=255, blank=True)
     status = models.CharField(max_length=50, blank=True)
     amount = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal("0"))

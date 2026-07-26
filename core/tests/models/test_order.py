@@ -145,10 +145,11 @@ class OrderModelTest(TestCase):
         # but net_margin = 100 - 5 - 0 = 95
         self.assertEqual(order.net_margin, Decimal("95.00"))
 
-    def _add_return(self, order, line_item, quantity=1, amount="50.00"):
+    def _add_return(self, order, line_item, quantity=1, amount="50.00", source=Return.Source.RETURN):
         order_return = Return.objects.create(
             order=order,
             external_id="gid://shopify/Return/1",
+            source=source,
             name="#1001-R1",
             status="CLOSED",
             amount=Decimal(amount),
@@ -202,6 +203,26 @@ class OrderModelTest(TestCase):
         self.assertEqual(order.net_margin, Decimal("38.00"))
         # after_tax_result = 38 - (50 * 0.134) = 38 - 6.70 = 31.30
         self.assertEqual(order.after_tax_result, Decimal("31.30"))
+
+    def test_recompute_financials_treats_refund_source_same_as_return(self):
+        order = self._create_order(total_price="100.00")
+        line_item = OrderLineItem.objects.create(
+            order=order,
+            external_id="gid://shopify/LineItem/1",
+            title="T-shirt",
+            quantity=2,
+            unit_price=Decimal("50.00"),
+            distributor_price=Decimal("12.00"),
+            variant=self.variant,
+        )
+        self._add_return(order, line_item, quantity=1, amount="50.00", source=Return.Source.REFUND)
+
+        order.recompute_financials()
+
+        order.refresh_from_db()
+        self.assertEqual(order.total_returns, Decimal("50.00"))
+        self.assertEqual(order.net_revenue, Decimal("50.00"))
+        self.assertEqual(order.returns_purchase_cost, Decimal("12.00"))
 
     def test_recompute_financials_no_returns_defaults(self):
         order = self._create_order(total_price="100.00")

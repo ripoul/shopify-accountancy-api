@@ -71,6 +71,24 @@ fragment OrderFields on Order {
       }
     }
   }
+  refunds(first: 10) {
+    id
+    return {
+      id
+    }
+    refundLineItems(first: 10) {
+      edges {
+        node {
+          id
+          quantity
+          ... on RefundLineItem {
+            subtotalSet { shopMoney { amount } }
+            lineItem { id }
+          }
+        }
+      }
+    }
+  }
 }
 """
 

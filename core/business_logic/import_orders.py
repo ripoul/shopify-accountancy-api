@@ -19,6 +19,7 @@ SALE_KINDS = {"SALE", "CAPTURE"}
 STORE_CREDIT_GATEWAY = "store-credit"
 CASH_GATEWAY = "cash"
 DEFAULT_VARIANT_TITLE = "Default Title"
+REFUND_STATUS = "COMPLETED"
 
 
 def _line_item_title(node, variant):
@@ -70,6 +71,7 @@ def _import_order(store, order_data):
     _import_discounts(order, order_data)
     _import_store_credit(order, sales)
     _import_returns(order, order_data)
+    _import_refunds(order, order_data)
 
     order.recompute_financials()
 
@@ -195,6 +197,7 @@ def _import_returns(order, order_data):
             order=order,
             external_id=node["id"],
             defaults={
+                "source": Return.Source.RETURN,
                 "name": node.get("name") or "",
                 "status": node.get("status") or "",
                 "amount": amount,
@@ -215,5 +218,47 @@ def _import_returns(order, order_data):
                     "title": order_line_item.title if order_line_item else "",
                     "quantity": rli_node["quantity"],
                     "amount": _money(rli_node.get("withCodeDiscountedTotalPriceSet")),
+                },
+            )
+
+
+def _import_refunds(order, order_data):
+    """Imports refunds not already covered by a formal Return (see _import_returns), as Return rows with source=REFUND.
+
+    Shopify links a refund to the Return it settles via `refund.return`. Skipping those
+    avoids double-counting the same money as both a Return and a Refund.
+    """
+    line_items_by_external_id = {item.external_id: item for item in order.line_items.all()}
+
+    for node in order_data.get("refunds") or []:
+        if node.get("return"):
+            continue
+
+        refund_line_items = node["refundLineItems"]["edges"]
+
+        amount = sum(
+            (_money(rli["node"].get("subtotalSet")) for rli in refund_line_items),
+            Decimal("0"),
+        )
+
+        order_return, _ = Return.objects.update_or_create(
+            order=order,
+            external_id=node["id"],
+            defaults={"source": Return.Source.REFUND, "status": REFUND_STATUS, "amount": amount},
+        )
+
+        for rli in refund_line_items:
+            rli_node = rli["node"]
+            line_item_data = rli_node.get("lineItem") or {}
+            order_line_item = line_items_by_external_id.get(line_item_data.get("id"))
+
+            ReturnLineItem.objects.update_or_create(
+                return_ref=order_return,
+                external_id=rli_node["id"],
+                defaults={
+                    "order_line_item": order_line_item,
+                    "title": order_line_item.title if order_line_item else "",
+                    "quantity": rli_node["quantity"],
+                    "amount": _money(rli_node.get("subtotalSet")),
                 },
             )

@@ -57,6 +57,25 @@ def _return_line_item(rli_id, line_item_id, quantity=1, amount="29.99"):
     }
 
 
+def _refund_node(refund_id="gid://shopify/Refund/1", refund_line_items=None, return_id=None):
+    return {
+        "id": refund_id,
+        "return": {"id": return_id} if return_id else None,
+        "refundLineItems": {"edges": refund_line_items or []},
+    }
+
+
+def _refund_line_item(rli_id, line_item_id, quantity=1, amount="29.99"):
+    return {
+        "node": {
+            "id": rli_id,
+            "quantity": quantity,
+            "subtotalSet": _money(amount),
+            "lineItem": {"id": line_item_id},
+        }
+    }
+
+
 def _order_data(
     order_id="gid://shopify/Order/1",
     name="#1001",
@@ -70,6 +89,7 @@ def _order_data(
     currency_code="EUR",
     payment_gateway_names=None,
     returns=None,
+    refunds=None,
 ):
     return {
         "id": order_id,
@@ -84,6 +104,7 @@ def _order_data(
         "discountApplications": {"edges": discount_applications or []},
         "transactions": transactions if transactions is not None else [_transaction()],
         "returns": {"edges": returns or []},
+        "refunds": refunds or [],
     }
 
 
@@ -444,3 +465,153 @@ class ImportOrdersTest(TestCase):
         order = Order.objects.get(store=self.store)
         self.assertEqual(order.total_returns, Decimal("10.00"))
         self.assertEqual(order.net_revenue, Decimal("10.00"))
+
+    def test_return_source_defaults_to_return(self):
+        self._run([self._order_with_return(amount="10.00")])
+
+        order_return = Return.objects.get(external_id="gid://shopify/Return/1")
+        self.assertEqual(order_return.source, Return.Source.RETURN)
+
+    def _order_with_refund(self, quantity=1, amount="10.00", return_id=None):
+        line_items = [
+            {
+                "node": {
+                    "id": "gid://shopify/LineItem/1",
+                    "title": "T-shirt",
+                    "quantity": 2,
+                    "variant": None,
+                    "product": None,
+                    "originalUnitPriceSet": _money("10.00"),
+                    "discountAllocations": [],
+                }
+            }
+        ]
+        refunds = [
+            _refund_node(
+                refund_line_items=[
+                    _refund_line_item(
+                        "gid://shopify/RefundLineItem/1",
+                        "gid://shopify/LineItem/1",
+                        quantity=quantity,
+                        amount=amount,
+                    )
+                ],
+                return_id=return_id,
+            )
+        ]
+        return _order_data(total_price="20.00", line_items=line_items, refunds=refunds)
+
+    def test_creates_refund_as_return_with_source(self):
+        self._run([self._order_with_refund(amount="10.00")])
+
+        order = Order.objects.get(store=self.store)
+        self.assertEqual(order.returns.count(), 1)
+        order_return = order.returns.first()
+        self.assertEqual(order_return.external_id, "gid://shopify/Refund/1")
+        self.assertEqual(order_return.source, Return.Source.REFUND)
+        self.assertEqual(order_return.status, "COMPLETED")
+        self.assertEqual(order_return.amount, Decimal("10.00"))
+
+    def test_creates_refund_line_item_linked_to_order_line_item(self):
+        self._run([self._order_with_refund(quantity=1, amount="10.00")])
+
+        refund_line_item = ReturnLineItem.objects.get(external_id="gid://shopify/RefundLineItem/1")
+        self.assertEqual(refund_line_item.quantity, 1)
+        self.assertEqual(refund_line_item.amount, Decimal("10.00"))
+        self.assertEqual(refund_line_item.order_line_item.external_id, "gid://shopify/LineItem/1")
+        self.assertEqual(refund_line_item.title, "T-shirt")
+
+    def test_refund_amount_sums_line_items(self):
+        refunds = [
+            _refund_node(
+                refund_line_items=[
+                    _refund_line_item("gid://shopify/RefundLineItem/1", "gid://shopify/LineItem/1", amount="4.00"),
+                    _refund_line_item("gid://shopify/RefundLineItem/2", "gid://shopify/LineItem/1", amount="6.00"),
+                ]
+            )
+        ]
+        self._run([_order_data(total_price="20.00", refunds=refunds)])
+
+        order_return = Return.objects.get(external_id="gid://shopify/Refund/1")
+        self.assertEqual(order_return.amount, Decimal("10.00"))
+
+    def test_refund_line_item_null_when_line_item_missing(self):
+        refunds = [
+            _refund_node(
+                refund_line_items=[
+                    _refund_line_item("gid://shopify/RefundLineItem/1", "gid://shopify/LineItem/999", amount="10.00")
+                ]
+            )
+        ]
+        self._run([_order_data(total_price="20.00", refunds=refunds)])
+
+        refund_line_item = ReturnLineItem.objects.get(external_id="gid://shopify/RefundLineItem/1")
+        self.assertIsNone(refund_line_item.order_line_item)
+
+    def test_refund_import_is_idempotent(self):
+        order_data = self._order_with_refund(amount="10.00")
+        self._run([order_data])
+        self._run([order_data])
+
+        self.assertEqual(Return.objects.filter(external_id="gid://shopify/Refund/1").count(), 1)
+        self.assertEqual(ReturnLineItem.objects.filter(external_id="gid://shopify/RefundLineItem/1").count(), 1)
+
+    def test_refund_updates_order_financials(self):
+        self._run([self._order_with_refund(quantity=1, amount="10.00")])
+
+        order = Order.objects.get(store=self.store)
+        self.assertEqual(order.total_returns, Decimal("10.00"))
+        self.assertEqual(order.net_revenue, Decimal("10.00"))
+
+    def test_refund_linked_to_return_is_not_double_counted(self):
+        """A refund settling a formal Return must not also be imported as its own row."""
+        order_data = self._order_with_refund(amount="10.00", return_id="gid://shopify/Return/1")
+
+        self._run([order_data])
+
+        self.assertFalse(Return.objects.filter(external_id="gid://shopify/Refund/1").exists())
+        self.assertFalse(ReturnLineItem.objects.filter(external_id="gid://shopify/RefundLineItem/1").exists())
+
+    def test_refund_linked_to_return_does_not_inflate_total_returns(self):
+        line_items = [
+            {
+                "node": {
+                    "id": "gid://shopify/LineItem/1",
+                    "title": "T-shirt",
+                    "quantity": 2,
+                    "variant": None,
+                    "product": None,
+                    "originalUnitPriceSet": _money("10.00"),
+                    "discountAllocations": [],
+                }
+            }
+        ]
+        returns = [
+            _return_node(
+                return_line_items=[
+                    _return_line_item(
+                        "gid://shopify/ReturnLineItem/1", "gid://shopify/LineItem/1", quantity=1, amount="10.00"
+                    )
+                ]
+            )
+        ]
+        refunds = [
+            _refund_node(
+                refund_line_items=[
+                    _refund_line_item(
+                        "gid://shopify/RefundLineItem/1",
+                        "gid://shopify/LineItem/1",
+                        quantity=1,
+                        amount="10.00",
+                    )
+                ],
+                return_id="gid://shopify/Return/1",
+            )
+        ]
+        order_data = _order_data(total_price="20.00", line_items=line_items, returns=returns, refunds=refunds)
+
+        self._run([order_data])
+
+        order = Order.objects.get(store=self.store)
+        self.assertEqual(order.returns.count(), 1)
+        self.assertEqual(order.total_returns, Decimal("10.00"))
