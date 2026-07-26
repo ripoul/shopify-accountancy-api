@@ -66,8 +66,8 @@ def update_quarterly_royalty(sender, instance, **kwargs):
 
 
 @receiver(post_save, sender=OrderExpense)
-def create_bank_transaction_for_order_expense(sender, instance, **kwargs):
-    if instance.type == OrderExpense.Type.DELIVERY:
+def create_bank_transaction_for_order_expense(sender, instance, created, **kwargs):
+    if instance.type == OrderExpense.Type.DELIVERY and created:
         BankTransaction.objects.create(
             store=instance.order.store,
             title=f"Delivery fee for {instance.order.name}",

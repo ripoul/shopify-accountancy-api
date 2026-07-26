@@ -149,6 +149,19 @@ class OrderSignalTest(TestCase):
 
         self.assertFalse(BankTransaction.objects.filter(source=BankTransaction.Source.ORDER_DELIVERY).exists())
 
+    def test_no_duplicate_bank_transaction_on_delivery_expense_resave(self):
+        order = self._create_order()
+        expense = OrderExpense.objects.create(
+            order=order,
+            type=OrderExpense.Type.DELIVERY,
+            source=OrderExpense.Source.MANUAL,
+            amount=Decimal("5.00"),
+        )
+        expense.amount = Decimal("7.00")
+        expense.save()
+
+        self.assertEqual(BankTransaction.objects.filter(source=BankTransaction.Source.ORDER_DELIVERY).count(), 1)
+
     # --- BankTransaction for Return ---
 
     def _create_return(self, order, amount=Decimal("50.00"), name="#1001-R1"):
