@@ -20,15 +20,15 @@ dependencies = [
 
 [dependency-groups]
 dev = [
-    "coverage>=7.15.0",
-    "django-stubs>=6.0.6",
+    "coverage>=7.15.2",
+    "django-stubs>=6.0.7",
     "django-types>=0.24.0",
     "djangorestframework-stubs>=3.17.0",
-    "pre-commit>=4.6.0",
+    "pre-commit>=4.6.1",
     "pytest>=9.1.1",
     "pytest-django>=4.12.0",
-    "ruff>=0.15.20",
-    "ty>=0.0.56",
+    "ruff>=0.16.0",
+    "ty>=0.0.63",
 ]
 
 [tool.pytest.ini_options]
