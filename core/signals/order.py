@@ -24,7 +24,7 @@ def create_cash_transaction_for_order(sender, instance, **kwargs):
             },
         )
 
-    if instance.shopify_transfer_amount:
+    if instance.shopify_transfer_amount and not instance.cash_paid_amount:
         BankTransaction.objects.get_or_create(
             store=instance.store,
             order=instance,

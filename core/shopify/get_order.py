@@ -1,7 +1,10 @@
 import json
+import logging
 
 import shopify
 from django.conf import settings
+
+logger = logging.getLogger(__name__)
 
 ORDER_FIELDS = """
 fragment OrderFields on Order {
@@ -41,7 +44,7 @@ fragment OrderFields on Order {
       }
     }
   }
-  transactions(first: 10) {
+  transactions(first: 5) {
     kind
     status
     gateway
@@ -50,7 +53,7 @@ fragment OrderFields on Order {
     amountSet { shopMoney { amount } }
     fees { amount { amount } }
   }
-  returns(first: 10) {
+  returns(first: 5) {
     edges {
       node {
         id
@@ -71,7 +74,7 @@ fragment OrderFields on Order {
       }
     }
   }
-  refunds(first: 10) {
+  refunds(first: 5) {
     id
     return {
       id
@@ -139,7 +142,11 @@ def get_order(store, since=None, external_id=None):
 
         result = shopify.GraphQL().execute(ORDERS_QUERY, variables={"cursor": None, "query": search})
         data = json.loads(result)
-        orders_data = data["data"]["orders"]
+        try:
+            orders_data = data["data"]["orders"]
+        except KeyError:
+            logger.error(f"Error parsing orders data: {data}")
+            raise
 
         orders = [edge["node"] for edge in orders_data["edges"]]
         has_more = orders_data["pageInfo"]["hasNextPage"]
