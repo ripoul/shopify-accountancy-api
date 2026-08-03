@@ -23,12 +23,12 @@ dev = [
     "coverage>=7.15.2",
     "django-stubs>=6.0.7",
     "django-types>=0.24.0",
-    "djangorestframework-stubs>=3.17.0",
+    "djangorestframework-stubs>=3.17.1",
     "pre-commit>=4.6.1",
     "pytest>=9.1.1",
     "pytest-django>=4.12.0",
-    "ruff>=0.16.0",
-    "ty>=0.0.63",
+    "ruff>=0.16.1",
+    "ty>=0.0.65",
 ]
 
 [tool.pytest.ini_options]
