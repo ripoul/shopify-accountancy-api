@@ -13,10 +13,10 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
 from core.filters.product_stats import ProductStatsFilter, VariantStatsFilter
-from core.models import Order, Product, ProductVariant, Purchase
+from core.models import Order, Product, ProductVariant, Purchase, Royalty, Tax
 from core.permissions import CanManageStore
 from core.serializers.product_stats import ProductStatsSerializer, ProductVariantStatsSerializer
-from core.serializers.stats import DashboardStatsSerializer, QuarterHistoryItemSerializer
+from core.serializers.stats import DashboardStatsSerializer, QuarterHistoryItemSerializer, TreasuryStatsSerializer
 
 from .base import get_store_for_user
 
@@ -194,6 +194,46 @@ class StatsViewSet(viewsets.GenericViewSet):
             result.append(stats)
 
         return Response(QuarterHistoryItemSerializer(result, many=True).data)
+
+    @extend_schema(
+        summary="Treasury snapshot",
+        description=(
+            "Returns the store's current treasury state.\n\n"
+            "**Fields:**\n"
+            "- `bank_amount`: Current bank balance\n"
+            "- `cash_amount`: Current cash register balance\n"
+            "- `unpaid_taxes_amount`: Sum of `Tax` records without a `payment_date` yet\n"
+            "- `unpaid_royalties_amount`: Sum of `Royalty` records without a `payment_date` yet\n"
+            "- `fixed_costs_reserve`: Configured reserve covering ~3 months of fixed costs "
+            "(`Store.fixed_costs_reserve`, set via `PATCH /stores/{store_pk}/`)\n"
+            "- `investable_amount`: `bank_amount` minus `unpaid_taxes_amount`, `unpaid_royalties_amount` "
+            "and `fixed_costs_reserve` — can be negative"
+        ),
+        responses={200: TreasuryStatsSerializer},
+    )
+    @action(detail=False, methods=["get"], url_path="treasury")
+    def treasury(self, request, store_pk=None):
+        store = get_store_for_user(request.user, store_pk)
+
+        unpaid_taxes_amount = Tax.objects.filter(store=store, payment_date__isnull=True).aggregate(total=Sum("amount"))[
+            "total"
+        ] or Decimal("0")
+        unpaid_royalties_amount = Royalty.objects.filter(store=store, payment_date__isnull=True).aggregate(
+            total=Sum("amount")
+        )["total"] or Decimal("0")
+
+        data = {
+            "bank_amount": store.bank_amount,
+            "cash_amount": store.cash_amount,
+            "unpaid_taxes_amount": unpaid_taxes_amount,
+            "unpaid_royalties_amount": unpaid_royalties_amount,
+            "fixed_costs_reserve": store.fixed_costs_reserve,
+            "investable_amount": store.bank_amount
+            - unpaid_taxes_amount
+            - unpaid_royalties_amount
+            - store.fixed_costs_reserve,
+        }
+        return Response(TreasuryStatsSerializer(data).data)
 
     _DECIMAL_FIELD = DecimalField(max_digits=20, decimal_places=4)
 

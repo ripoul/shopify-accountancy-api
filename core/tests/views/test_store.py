@@ -1,3 +1,4 @@
+from decimal import Decimal
 from unittest.mock import patch
 
 from django.contrib.auth.models import User
@@ -221,4 +222,53 @@ class StoreImportProductsTest(TestCase):
         other_store = Store.objects.create(shop_domain="other.myshopify.com", name="Other", access_token="shpat_other")
         url = reverse("store-import-products", kwargs={"pk": other_store.pk})
         response = self.client.post(url)
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+
+
+class StoreFixedCostsReserveUpdateTest(TestCase):
+    def setUp(self):
+        self.client = APIClient()
+        self.user = User.objects.create_user(
+            username="owner@example.com",
+            email="owner@example.com",
+            password="strongpassword",
+        )
+        self.store = Store.objects.create(
+            shop_domain="test.myshopify.com",
+            name="Test Store",
+            access_token="shpat_test",
+        )
+        assign_perm("can_manage", self.user, self.store)
+        self._authenticate(self.user)
+        self.url = reverse("store-detail", kwargs={"pk": self.store.pk})
+
+    def _authenticate(self, user):
+        response = self.client.post(
+            reverse("token_obtain_pair"),
+            {"username": user.username, "password": "strongpassword"},
+        )
+        self.client.credentials(HTTP_AUTHORIZATION=f"Bearer {response.data['access']}")
+
+    def test_fixed_costs_reserve_defaults_to_zero(self):
+        response = self.client.get(self.url)
+        self.assertEqual(response.data["fixed_costs_reserve"], "0.00")
+
+    def test_can_update_fixed_costs_reserve(self):
+        response = self.client.patch(self.url, {"fixed_costs_reserve": "4500.00"}, format="json")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.store.refresh_from_db()
+        self.assertEqual(self.store.fixed_costs_reserve, Decimal("4500.00"))
+
+    def test_fixed_costs_reserve_in_store_response(self):
+        response = self.client.get(self.url)
+        self.assertIn("fixed_costs_reserve", response.data)
+
+    def test_other_store_owner_cannot_update(self):
+        other_user = User.objects.create_user(
+            username="intruder@example.com",
+            email="intruder@example.com",
+            password="strongpassword",
+        )
+        self._authenticate(other_user)
+        response = self.client.patch(self.url, {"fixed_costs_reserve": "999.00"}, format="json")
         self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)

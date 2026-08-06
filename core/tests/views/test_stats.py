@@ -11,7 +11,7 @@ from guardian.shortcuts import assign_perm
 from rest_framework import status
 from rest_framework.test import APIClient
 
-from core.models import Order, Purchase, Store, Supplier
+from core.models import Order, Purchase, Royalty, Store, Supplier, Tax
 
 # Fixed reference date for all tests: 2025-05-15
 # Current quarter (Q2 2025): 2025-04-01 → 2025-05-15 (44 days elapsed)
@@ -655,3 +655,128 @@ class QuartersHistoryTest(BaseStatsViewSetTestCase):
         response = self.client.get(self.url)
         q2_item = next(item for item in response.data if item["period"] == "2025/02")
         self.assertEqual(q2_item["end_date"], "2025-06-30")
+
+
+class TreasuryStatsTest(BaseStatsViewSetTestCase):
+    def setUp(self):
+        super().setUp()
+        self.url = reverse("stat-treasury", kwargs={"store_pk": self.store.pk})
+
+    def _create_tax(self, quarter="2024/01", amount="100.00", payment_date=None):
+        return Tax.objects.create(store=self.store, quarter=quarter, amount=Decimal(amount), payment_date=payment_date)
+
+    def _create_royalty(self, quarter="2024/01", amount="50.00", payment_date=None):
+        return Royalty.objects.create(
+            store=self.store, quarter=quarter, amount=Decimal(amount), payment_date=payment_date
+        )
+
+    def test_returns_200(self):
+        response = self.client.get(self.url)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+    def test_unauthenticated_returns_401(self):
+        self.client.credentials()
+        response = self.client.get(self.url)
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+
+    def test_store_without_permission_returns_403(self):
+        other_store = Store.objects.create(shop_domain="other.myshopify.com", name="Other", access_token="shpat_other")
+        url = reverse("stat-treasury", kwargs={"store_pk": other_store.pk})
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_response_fields_present(self):
+        response = self.client.get(self.url)
+        expected_fields = {
+            "bank_amount",
+            "cash_amount",
+            "unpaid_taxes_amount",
+            "unpaid_royalties_amount",
+            "fixed_costs_reserve",
+            "investable_amount",
+        }
+        self.assertEqual(set(response.data.keys()), expected_fields)
+
+    def test_bank_and_cash_amounts_reflect_store(self):
+        self.store.bank_amount = Decimal("10000.00")
+        self.store.cash_amount = Decimal("250.00")
+        self.store.save()
+        response = self.client.get(self.url)
+        self.assertEqual(response.data["bank_amount"], "10000.00")
+        self.assertEqual(response.data["cash_amount"], "250.00")
+
+    def test_zero_state_returns_zeros(self):
+        response = self.client.get(self.url)
+        self.assertEqual(response.data["bank_amount"], "0.00")
+        self.assertEqual(response.data["cash_amount"], "0.00")
+        self.assertEqual(response.data["unpaid_taxes_amount"], "0.00")
+        self.assertEqual(response.data["unpaid_royalties_amount"], "0.00")
+        self.assertEqual(response.data["fixed_costs_reserve"], "0.00")
+        self.assertEqual(response.data["investable_amount"], "0.00")
+
+    def test_unpaid_taxes_are_summed(self):
+        self._create_tax(quarter="2024/01", amount="100.00")
+        self._create_tax(quarter="2024/02", amount="150.00")
+        response = self.client.get(self.url)
+        self.assertEqual(response.data["unpaid_taxes_amount"], "250.00")
+
+    def test_paid_taxes_are_excluded(self):
+        self._create_tax(quarter="2024/01", amount="100.00", payment_date=date(2024, 4, 30))
+        self._create_tax(quarter="2024/02", amount="150.00")
+        response = self.client.get(self.url)
+        self.assertEqual(response.data["unpaid_taxes_amount"], "150.00")
+
+    def test_unpaid_royalties_are_summed(self):
+        self._create_royalty(quarter="2024/01", amount="30.00")
+        self._create_royalty(quarter="2024/02", amount="45.00")
+        response = self.client.get(self.url)
+        self.assertEqual(response.data["unpaid_royalties_amount"], "75.00")
+
+    def test_paid_royalties_are_excluded(self):
+        self._create_royalty(quarter="2024/01", amount="30.00", payment_date=date(2024, 4, 30))
+        self._create_royalty(quarter="2024/02", amount="45.00")
+        response = self.client.get(self.url)
+        self.assertEqual(response.data["unpaid_royalties_amount"], "45.00")
+
+    def test_fixed_costs_reserve_reflects_store_value(self):
+        self.store.fixed_costs_reserve = Decimal("3000.00")
+        self.store.save()
+        response = self.client.get(self.url)
+        self.assertEqual(response.data["fixed_costs_reserve"], "3000.00")
+
+    def test_investable_amount_computed_correctly(self):
+        self.store.bank_amount = Decimal("10000.00")
+        self.store.fixed_costs_reserve = Decimal("3000.00")
+        self.store.save()
+        # Saving a Tax auto-recalculates the Royalty for the same quarter (see
+        # core/signals/royalty.py), so use a different quarter to avoid a unique_together clash.
+        self._create_tax(quarter="2024/01", amount="500.00")
+        self._create_royalty(quarter="2024/02", amount="200.00")
+        response = self.client.get(self.url)
+        # 10000 - 500 - 200 - 3000 = 6300
+        self.assertEqual(response.data["investable_amount"], "6300.00")
+
+    def test_investable_amount_can_be_negative(self):
+        self.store.bank_amount = Decimal("1000.00")
+        self.store.fixed_costs_reserve = Decimal("3000.00")
+        self.store.save()
+        self._create_tax(quarter="2024/01", amount="500.00")
+        response = self.client.get(self.url)
+        # 1000 - 500 - 0 - 3000 = -2500
+        self.assertEqual(response.data["investable_amount"], "-2500.00")
+
+    def test_store_isolation(self):
+        other_store = Store.objects.create(shop_domain="other.myshopify.com", name="Other", access_token="shpat_other")
+        other_store.bank_amount = Decimal("99999.00")
+        other_store.save()
+        Tax.objects.create(store=other_store, quarter="2024/01", amount=Decimal("999.00"))
+        Royalty.objects.create(store=other_store, quarter="2024/02", amount=Decimal("999.00"))
+
+        self.store.bank_amount = Decimal("1000.00")
+        self.store.save()
+        self._create_tax(quarter="2024/01", amount="100.00")
+
+        response = self.client.get(self.url)
+        self.assertEqual(response.data["bank_amount"], "1000.00")
+        self.assertEqual(response.data["unpaid_taxes_amount"], "100.00")
+        self.assertEqual(response.data["unpaid_royalties_amount"], "0.00")

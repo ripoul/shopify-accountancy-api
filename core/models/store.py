@@ -11,6 +11,7 @@ class Store(models.Model):
     cash_amount = models.DecimalField(max_digits=12, decimal_places=2, default=Decimal("0"))
     bank_amount = models.DecimalField(max_digits=12, decimal_places=2, default=Decimal("0"))
     royalty_rate = models.DecimalField(max_digits=5, decimal_places=2, default=Decimal("0"))
+    fixed_costs_reserve = models.DecimalField(max_digits=12, decimal_places=2, default=Decimal("0"))
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 

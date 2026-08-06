@@ -52,3 +52,39 @@ class QuarterHistoryItemSerializer(QuarterStatsSerializer):
 class DashboardStatsSerializer(serializers.Serializer):
     current_quarter = QuarterStatsSerializer(help_text="Stats for the current quarter up to today")
     previous_quarter = QuarterStatsSerializer(help_text="Stats for the same elapsed period in the previous quarter")
+
+
+class TreasuryStatsSerializer(serializers.Serializer):
+    bank_amount = serializers.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        help_text="Current bank balance (Store.bank_amount)",
+    )
+    cash_amount = serializers.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        help_text="Current cash register balance (Store.cash_amount)",
+    )
+    unpaid_taxes_amount = serializers.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        help_text="Sum of Tax records with no payment_date set yet",
+    )
+    unpaid_royalties_amount = serializers.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        help_text="Sum of Royalty records with no payment_date set yet",
+    )
+    fixed_costs_reserve = serializers.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        help_text="Configured reserve covering ~3 months of fixed costs (Store.fixed_costs_reserve)",
+    )
+    investable_amount = serializers.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        help_text=(
+            "bank_amount minus unpaid_taxes_amount, unpaid_royalties_amount and fixed_costs_reserve. "
+            "Can be negative if unpaid dues and the reserve exceed the bank balance."
+        ),
+    )

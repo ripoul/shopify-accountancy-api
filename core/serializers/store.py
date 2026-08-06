@@ -28,6 +28,7 @@ class StoreSerializer(serializers.ModelSerializer):
             "bank_amount",
             "cash_amount",
             "royalty_rate",
+            "fixed_costs_reserve",
             "scopes",
             "created_at",
             "updated_at",
