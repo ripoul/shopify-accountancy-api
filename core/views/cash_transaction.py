@@ -31,7 +31,7 @@ class CashTransactionViewSet(
         if getattr(self, "swagger_fake_view", False):
             return CashTransaction.objects.none()
         store = get_store_for_user(self.request.user, self.kwargs["store_pk"])
-        return CashTransaction.objects.filter(store=store).order_by("-date")
+        return CashTransaction.objects.filter(store=store).order_by("-date", "-id")
 
     def perform_create(self, serializer):
         store = get_store_for_user(self.request.user, self.kwargs["store_pk"])

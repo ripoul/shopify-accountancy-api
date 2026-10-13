@@ -31,7 +31,7 @@ class BankTransactionViewSet(
         if getattr(self, "swagger_fake_view", False):
             return BankTransaction.objects.none()
         store = get_store_for_user(self.request.user, self.kwargs["store_pk"])
-        return BankTransaction.objects.filter(store=store).order_by("-date")
+        return BankTransaction.objects.filter(store=store).order_by("-date", "-id")
 
     def perform_create(self, serializer):
         store = get_store_for_user(self.request.user, self.kwargs["store_pk"])
